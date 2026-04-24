@@ -1,0 +1,25 @@
+# name: Deploy AmarCoupon Server
+
+# # This tells GitHub to run the script every time you push to the 'main' branch
+# on:
+#   push:
+#     branches: [main]
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Deploy to VPS
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.HOST }}
+#           username: ${{ secrets.USER }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           script: |
+#             cd /var/www/amarcoupon/ju-hall-token-client
+#             git pull origin main
+#             npm install
+#             pm2 restart amarcoupon-client

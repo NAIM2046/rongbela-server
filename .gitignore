@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# VSCode settings
+.vscode/
+
+# IDE / OS-specific
+.DS_Store
+Thumbs.db
+
+# Coverage / test output
+coverage/
+*.lcov
+
+# Optional: ignore uploads/temp folders if used
+uploads/
+temp/
+/src/generated/prisma
+
+.vercel

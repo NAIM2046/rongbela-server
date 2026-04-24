@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Enums ---
+
+enum Role {
+  ADMIN
+  STUDENT
+  DRIVER
+}
+
+// --- Models ---
+
+model User {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+}
