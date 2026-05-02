@@ -8,7 +8,7 @@ interface EnvConfig {
   ADMIN_EMAIL: string;
   ADMIN_PASSWORD: string;
   
-  ADMIN_PHONE?: string;
+  
 }
 
 function getEnv(key: string) {
@@ -23,7 +23,7 @@ const loadEnvVars = (): EnvConfig => ({
   NODE_ENV: getEnv("NODE_ENV"),
   ADMIN_EMAIL: getEnv("ADMIN_EMAIL"),
   ADMIN_PASSWORD: getEnv("ADMIN_PASSWORD"),
-  ADMIN_PHONE: getEnv("ADMIN_PHONE"),
+ 
   
 });
 

@@ -17,12 +17,12 @@ export const seedAdmin = async () => {
     const hashPassword = await bcrypt.hash(EnvVars.ADMIN_PASSWORD, 10);
 
     const adminData = {
-      name: "Next Innovation Labs",
+      name: "nexovatelabs",
       email: EnvVars.ADMIN_EMAIL,
       role: Role.ADMIN,
       password: hashPassword,
       
-      phone: EnvVars.ADMIN_PHONE as string ,
+      
     };
 
     const adminUser = await prisma.user.create({

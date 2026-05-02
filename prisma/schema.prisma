@@ -10,14 +10,78 @@ datasource db {
 
 enum Role {
   ADMIN
-  STUDENT
-  DRIVER
 }
 
 // --- Models ---
 
 model User {
-  id             String    @id @default(uuid())
-  name           String
-  email          String    @unique
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  role     Role   @default(ADMIN)
+  password String
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  image       String?
+  parentId    String?
+  level       Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToCategory")
+  products    Product[]
+
+  @@index([parentId])
+}
+
+enum ProductSellType {
+  FIXED_PRICE
+  COLLECTIVE
+}
+
+// --- Product Table ---
+model Product {
+  id    String @id @default(uuid())
+  title String
+  slug  String @unique
+
+  description String? @db.Text
+
+  specifications Json?
+
+  sellType ProductSellType @default(FIXED_PRICE)
+  price    Float?
+
+  isActive Boolean @default(true)
+
+  artistId String
+
+  // Foreign Keys & Relations
+  categoryId String
+  category   Category       @relation(fields: [categoryId], references: [id])
+  images     ProductImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Product Image Table ---
+model ProductImage {
+  id        String  @id @default(uuid())
+  url       String
+  isPrimary Boolean @default(false)
+
+  displayOrder Int @default(0)
+
+  // Foreign Key & Relation
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }

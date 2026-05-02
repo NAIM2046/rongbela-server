@@ -1,7 +1,7 @@
 // src/app/auth/auth.controller.ts
 import { Request, Response } from "express";
 import {
-  AuthServices,
+  
   getMeService,
   loginService,
   logoutService,
@@ -17,11 +17,13 @@ const isProd = EnvVars.NODE_ENV === "production";
 
 export const login = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
+  //console.log("Login request received with email:", email , password );
 
   const { accessToken, refreshToken, role } = await loginService({
     email,
     password,
   });
+ // console.log("Login successful, generated tokens for user:", accessToken, refreshToken, role);
 
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
@@ -121,57 +123,55 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const changePassword = catchAsync(
-  async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+// export const changePassword = catchAsync(
+//   async (req: Request, res: Response) => {
+//     const userId = req.user?.userId;
 
-    if (!userId) {
-      throw new ApiError(401, "Unauthorized access! User ID not found.");
-    }
+//     if (!userId) {
+//       throw new ApiError(401, "Unauthorized access! User ID not found.");
+//     }
 
-    const result = await AuthServices.changePassword(userId, req.body);
+//     const result = await AuthServices.changePassword(userId, req.body);
 
-    sendResponse(res, {
-      statusCode: 200,
-      success: true,
-      message: "Password changed successfully ✅",
-      data: result,
-    });
-  },
-);
+//     sendResponse(res, {
+//       statusCode: 200,
+//       success: true,
+//       message: "Password changed successfully ✅",
+//       data: result,
+//     });
+//   },
+// );
 
-export const forgotPassword = catchAsync(
-  async (req: Request, res: Response) => {
-    const { email } = req.body;
-    const result = await AuthServices.forgotPassword(email);
+// export const forgotPassword = catchAsync(
+//   async (req: Request, res: Response) => {
+//     const { email } = req.body;
+//     const result = await AuthServices.forgotPassword(email);
 
-    sendResponse(res, {
-      statusCode: 200,
-      success: true,
-      message: result.message,
-      data: null,
-    });
-  },
-);
+//     sendResponse(res, {
+//       statusCode: 200,
+//       success: true,
+//       message: result.message,
+//       data: null,
+//     });
+//   },
+// );
 
-export const resetPassword = catchAsync(async (req: Request, res: Response) => {
-  // ফ্রন্টএন্ড থেকে email, otp এবং newPassword পাঠাতে হবে
-  const result = await AuthServices.resetPassword(req.body);
+// export const resetPassword = catchAsync(async (req: Request, res: Response) => {
+//   // ফ্রন্টএন্ড থেকে email, otp এবং newPassword পাঠাতে হবে
+//   const result = await AuthServices.resetPassword(req.body);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: result.message,
-    data: null,
-  });
-});
+//   sendResponse(res, {
+//     statusCode: 200,
+//     success: true,
+//     message: result.message,
+//     data: null,
+//   });
+// });
 
 export const AuthController = {
   login,
   refreshToken,
   logout,
   getMe,
-  changePassword,
-  forgotPassword,
-  resetPassword,
+  
 };

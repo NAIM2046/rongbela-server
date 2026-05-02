@@ -6,11 +6,10 @@ import jwt from "jsonwebtoken";
 export const generateAccessToken = (
   userId: string,
   role: string,
-  
 ) => {
   return jwt.sign(
     { userId, role }, 
-    process.env.ACCESS_TOKEN_SECRET as string,
+    process.env.JWT_ACCESS_TOKEN_SECRET as string,
     { expiresIn: "1h" }
   );
 };
@@ -22,7 +21,7 @@ export const generateRefreshToken = (
 ) => {
   return jwt.sign(
     { userId, role}, 
-    process.env.REFRESH_TOKEN_SECRET as string,
+    process.env.JWT_REFRESH_TOKEN_SECRET as string,
     { expiresIn: "7d" }
   );
 };

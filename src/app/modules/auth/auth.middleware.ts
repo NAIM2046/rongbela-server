@@ -37,7 +37,7 @@ export const auth =
 
       const decoded = jwt.verify(
         token,
-        process.env.ACCESS_TOKEN_SECRET as string
+        process.env.JWT_ACCESS_TOKEN_SECRET as string
       ) as JwtUser;
 
       const user = {

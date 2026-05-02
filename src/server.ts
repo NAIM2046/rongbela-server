@@ -2,7 +2,8 @@
 import { EnvVars } from "./app/config/env";
 import app from "./app";
 import { prisma } from "./shared/prisma";
-import { seedAdmin } from "./shared/seedadmin";
+import { seedAdmin } from "./shared/seedAdmin";
+
 
 
 const startServer = async () => {
@@ -10,7 +11,7 @@ const startServer = async () => {
     //  Prisma DB connection check
     await prisma.$connect();
     console.log(" Database connected successfully");
-    await seedAdmin()
+    await seedAdmin  ()
     
     app.listen(EnvVars.PORT, () => {
       console.log(`🚀 Server running on port ${EnvVars.PORT}`);
