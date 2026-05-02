@@ -4,6 +4,7 @@ import { AuthRoutes } from "../modules/auth/auth.router";
 import { productCategoryRoutes } from "../modules/ProductCategory/productCategory.routes";
 import { MediaRoutes } from "../modules/media/media.router";
 import { ProductRoutes } from "../modules/product/product.router";
+import { BannerRoutes } from "../modules/BannerManagement/banner.routes";
 
 
 export const router = express.Router();
@@ -24,6 +25,10 @@ const appRoutes = [
   {
     path: "/product",
     route: ProductRoutes
+  },
+  {
+    path: "/banner", 
+    route: BannerRoutes
   }
   
 ];

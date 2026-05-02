@@ -83,7 +83,6 @@ export const getProducts = async (filters: IProductFilters) => {
     // ২. ডাইনামিক Where কন্ডিশন তৈরি করা
     const whereConditions: Prisma.ProductWhereInput = {};
 
-    // যদি searchTerm থাকে, তবে title বা description-এ খুঁজবে (case-insensitive)
     if (searchTerm) {
       whereConditions.OR = [
         { title: { contains: searchTerm, mode: "insensitive" } },
@@ -91,38 +90,35 @@ export const getProducts = async (filters: IProductFilters) => {
       ];
     }
 
-    // যদি categoryId দেওয়া থাকে, তবে নির্দিষ্ট ক্যাটাগরির প্রোডাক্ট ফিল্টার করবে
     if (categoryId) {
       whereConditions.categoryId = categoryId;
     }
 
-    // (ঐচ্ছিক) শুধুমাত্র একটিভ প্রোডাক্ট দেখাতে চাইলে:
-    // whereConditions.isActive = true;
-
-    // ৩. ডাটাবেস থেকে ডাটা এবং টোটাল কাউন্ট একসাথে ফেচ করা (Transaction ব্যবহার করে)
-    const [products, total] = await prisma.$transaction([
+    // ৩. ডাটাবেস থেকে ডাটা এবং টোটাল কাউন্ট একসাথে ফেচ করা (Promise.all ব্যবহার করে)
+    // 💡 এখানে prisma.$transaction এর বদলে Promise.all দেওয়া হয়েছে
+    const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: whereConditions,
         skip,
         take: limit,
         orderBy: {
-          createdAt: "desc", // নতুন প্রোডাক্ট আগে দেখাবে
+          createdAt: "desc", 
         },
         include: {
           category: {
             select: {
-              name: true, // ক্যাটাগরির শুধু নামটা নিয়ে আসছি
+              name: true, 
             },
           },
           images: {
             orderBy: {
-              displayOrder: "asc", // ফ্রন্টএন্ডের সুবিধার জন্য সিরিয়াল অনুযায়ী ইমেজ
+              displayOrder: "asc", 
             },
           },
         },
       }),
       prisma.product.count({
-        where: whereConditions, // মোট কতগুলো প্রোডাক্ট আছে তা কাউন্ট করা
+        where: whereConditions, 
       }),
     ]);
 
