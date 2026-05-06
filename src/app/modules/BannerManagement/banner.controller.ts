@@ -4,8 +4,6 @@ import { BannerService } from "./banner.service";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 
-
-
 // Create Banner Controller
 const createBanner = catchAsync(async (req: Request, res: Response) => {
   // বডি থেকে ডাটা নেওয়া হচ্ছে
@@ -56,7 +54,6 @@ const updateBanner = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
 
 export const BannerController = {
   createBanner,

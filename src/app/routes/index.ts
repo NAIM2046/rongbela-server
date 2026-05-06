@@ -30,7 +30,6 @@ const appRoutes = [
     path: "/banner", 
     route: BannerRoutes
   }
-  
 ];
 
 appRoutes.forEach((route) => router.use(route.path, route.route));
