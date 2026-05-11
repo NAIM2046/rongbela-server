@@ -3,7 +3,7 @@ import { OrderControllers } from "./order.controller";
 import { auth } from "../auth/auth.middleware";
 const router = express.Router();
 
-router.get("/initiate-cod-order", OrderControllers.initiateCODOrder);
+router.post("/initiate-cod-order", OrderControllers.initiateCODOrder);
 
 router.get(
   "/customer-orders",

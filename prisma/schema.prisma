@@ -76,6 +76,25 @@ model Product {
   orderItems     OrderItem[]
 }
 
+// model ProductVariant {
+//   id            String         @id @default(uuid())
+//   productId     String
+//   sku           String         @unique
+//   price         Decimal        @db.Decimal(10, 2)
+//   discountPrice Decimal?       @db.Decimal(10, 2)
+//   stock         Int            @default(0)
+//   attributes    Json
+//   weight        Float?         @default(0.5)
+//   length        Float?         @default(10)
+//   width         Float?         @default(10)
+//   height        Float?         @default(5)
+//   version       Int            @default(0)
+//   imageId       String?
+//   isActive      Boolean        @default(true)
+//   image         ProductImage?  @relation(fields: [imageId], references: [id])
+//   product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+// }
+
 model ProductImage {
   id           String   @id @default(uuid())
   url          String
@@ -102,7 +121,7 @@ model Banner {
 model Order {
   id              String         @id @default(uuid())
   totalAmount     Float
-  paymentStatus   PaymentStatus  @default(PENDING)
+  orderStatus     OrderStatus    @default(PROCESSING)
   paymentGateway  String
   transactionId   String?        @unique
   shippingAddress Json
@@ -110,12 +129,14 @@ model Order {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   orderPayments   OrderPayment[]
+  orderItems      OrderItem[]
 }
 
 model OrderItem {
   id           String  @id @default(uuid())
   productName  String
   productImage String
+  orderId      String
   variant      Json?
   quantity     Int
   unitPrice    Float
@@ -123,6 +144,7 @@ model OrderItem {
   weightKg     Float?
   productId    String
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model OrderPayment {
@@ -136,7 +158,7 @@ model OrderPayment {
   errorMessage    String?
   paidAt          DateTime?
   createdAt       DateTime      @default(now())
-  order           Order         @relation(fields: [orderId], references: [id])
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 enum PaymentGateway {

@@ -13,7 +13,7 @@ const initiateCODOrder = catchAsync(
     sendResponse(res, {
       data: result,
       success: true,
-      message: "Order Placed Successfully.",
+      message: "Order placed successfully (Cash on Delivery)",
       statusCode: statusCode.OK,
     });
   },
@@ -35,10 +35,10 @@ const updateOrderStatus = catchAsync(
 
 const getCustomerOrders = catchAsync(
   async (req: Request & { user?: JwtUser }, res: Response) => {
-    const sellerId = req.user?.userId as string;
     const result = await OrderServices.getCustomerOrders();
     sendResponse(res, {
-      data: result,
+      data: result.data,
+      meta: result.meta,
       success: true,
       message: "Customer Orders Retrieved Successfully.",
       statusCode: statusCode.OK,

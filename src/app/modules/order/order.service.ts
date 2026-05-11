@@ -1,13 +1,48 @@
 import { prisma } from "../../../shared/prisma";
 import ApiError from "../../error/ApiError";
 
-const getCustomerOrders = async () => {
+const getCustomerOrders = async (limit = 10, page = 1) => {
   try {
-    const currentOrders = await prisma.order.findMany()
-  } catch (error) {}
+    const currentOrders = await prisma.order.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        shippingAddress: true,
+        orderItems: {
+          select: {
+            productImage: true,
+            quantity: true,
+            productName: true,
+            totalPrice: true,
+            unitPrice: true,
+          },
+        },
+        createdAt: true,
+        orderStatus: true,
+        totalAmount: true,
+      },
+    });
+
+    const totalOrders = await prisma.order.count();
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    return {
+      data: currentOrders,
+      meta: {
+        totalPages,
+        limit,
+        page,
+        total: totalOrders,
+      },
+    };
+  } catch (error: any) {
+    console.error("Error creating COD order:", error);
+    throw new ApiError(500, error.message || "Failed to take cod order.");
+  }
 };
 
-const getTransactionId = (): string => {
+export const getTransactionId = (): string => {
   const charset = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // Removed 'I' and 'O' to avoid confusion with 1 and 0
   const array = new Uint32Array(10);
   crypto.getRandomValues(array);
@@ -18,6 +53,7 @@ const getTransactionId = (): string => {
 };
 
 const takeCODOrder = async (orderPayload: OrderPayload) => {
+  console.log({ orderPayload });
   try {
     let productIds = orderPayload.items.map((item) => item.id);
 
@@ -45,18 +81,26 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
         id: product.id,
         quantity: currentProduct?.quantity,
         price: currentProduct?.price,
-        image: product.images[0],
+        image: product.images[0]?.url,
         title: product.title,
       };
+    });
+
+    console.log({ productWithQantityAndPrice });
+    console.log({ items: orderPayload.items });
+
+    const fullCustomerAddress = JSON.stringify({
+      ...orderPayload.shippingAddress,
+      ...orderPayload.customer,
     });
 
     const result = await prisma.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
         data: {
           totalAmount: orderPayload.totalAmount,
-          paymentStatus: "PENDING",
+          orderStatus: "PROCESSING",
           paymentGateway: "COD",
-          shippingAddress: JSON.stringify(orderPayload.shippingAddress),
+          shippingAddress: fullCustomerAddress,
           orderItems: {
             create: productWithQantityAndPrice.map((item) => ({
               productId: item.id,
@@ -83,12 +127,7 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
       });
       return newOrder;
     });
-
-    return {
-      success: true,
-      message: "Order placed successfully (Cash on Delivery)",
-      order: result,
-    };
+    return null;
   } catch (error: any) {
     console.error("Error creating COD order:", error);
     throw new ApiError(500, error.message || "Failed to take cod order.");

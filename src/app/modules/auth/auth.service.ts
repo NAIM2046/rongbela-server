@@ -12,7 +12,7 @@ export const loginService = async (payload: {
 }) => {
   try {
     const { email, password } = payload;
-   
+    console.log({ email, password });
 
     if (!email) {
       throw new ApiError(400, "Email is required for login");
@@ -21,7 +21,6 @@ export const loginService = async (payload: {
     const user = await prisma.user.findUnique({
       where: {
         email: email,
-       
       },
     });
 
@@ -34,16 +33,8 @@ export const loginService = async (payload: {
       throw new ApiError(401, "Invalid password");
     }
 
-    const accessToken = generateAccessToken
-      (
-      user.id,
-      user.role,
-    );
-    const refreshToken = generateRefreshToken(
-      user.id,
-      user.role,
-     
-    );
+    const accessToken = generateAccessToken(user.id, user.role);
+    const refreshToken = generateRefreshToken(user.id, user.role);
 
     return { accessToken, refreshToken, role: user.role };
   } catch (error: any) {
@@ -85,7 +76,6 @@ export const refreshTokenService = async (oldRefreshToken: string) => {
     ) as jwt.JwtPayload & {
       userId: string;
       role: string;
-     
     };
 
     const { userId, role } = decoded;
@@ -207,8 +197,8 @@ export const refreshTokenService = async (oldRefreshToken: string) => {
 //       where: { id: user.id },
 //       data: {
 //         password: hashedPassword,
-//         resetOtp: null, 
-//         resetOtpExpiry: null, 
+//         resetOtp: null,
+//         resetOtpExpiry: null,
 //       },
 //     });
 
@@ -222,5 +212,4 @@ export const refreshTokenService = async (oldRefreshToken: string) => {
 export const AuthServices = {
   loginService,
   getMeService,
- 
 };
