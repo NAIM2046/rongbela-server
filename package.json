@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "pnpm ts-node-dev --respawn --transpile-only ./src/server.ts",
+    "dev": "ts-node-dev --poll --respawn --transpile-only ./src/server.ts",
     "build": "pnpm prisma generate && tsc",
     "start": "node dist/server.js",
     "lint": "pnpm eslint ./src",

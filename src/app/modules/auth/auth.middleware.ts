@@ -3,15 +3,12 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { Role } from "@prisma/client";
 
-
-import httpStatus from "http-status"; 
+import httpStatus from "http-status";
 import ApiError from "../../error/ApiError";
 
-
-interface JwtUser {
+export interface JwtUser {
   userId: string;
   role: Role;
-  
 }
 
 export const auth =
@@ -28,7 +25,10 @@ export const auth =
       }
 
       if (!token) {
-        throw new ApiError(httpStatus.UNAUTHORIZED, "Unauthorized: Token missing");
+        throw new ApiError(
+          httpStatus.UNAUTHORIZED,
+          "Unauthorized: Token missing",
+        );
       }
 
       if (token.startsWith("Bearer ")) {
@@ -37,32 +37,31 @@ export const auth =
 
       const decoded = jwt.verify(
         token,
-        process.env.JWT_ACCESS_TOKEN_SECRET as string
+        process.env.JWT_ACCESS_TOKEN_SECRET as string,
       ) as JwtUser;
 
       const user = {
         userId: decoded.userId,
         role: decoded.role,
-       
       };
 
       req.user = user;
 
-
       if (authRoles.length > 0 && !authRoles.includes(user.role)) {
-        throw new ApiError(httpStatus.FORBIDDEN, "Forbidden: Insufficient permissions");
+        throw new ApiError(
+          httpStatus.FORBIDDEN,
+          "Forbidden: Insufficient permissions",
+        );
       }
 
       next();
     } catch (error: any) {
-      
       if (error.name === "TokenExpiredError") {
         next(new ApiError(httpStatus.UNAUTHORIZED, "Token expired"));
       } else if (error instanceof ApiError) {
-        next(error); 
+        next(error);
       } else {
         next(new ApiError(httpStatus.UNAUTHORIZED, "Invalid token"));
       }
     }
-    };
-  
+  };

@@ -3,12 +3,8 @@ import { EnvVars } from "./app/config/env";
 import app from "./app";
 import { prisma } from "./shared/prisma";
 import { seedAdmin } from "./shared/seedAdmin";
-
-
-
 const startServer = async () => {
   try {
-    //  Prisma DB connection check
     await prisma.$connect();
     console.log(" Database connected successfully");
     await seedAdmin  ()

@@ -6,13 +6,26 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- Enums ---
-
 enum Role {
   ADMIN
 }
 
-// --- Models ---
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PROCESSING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
 
 model User {
   id       String @id @default(uuid())
@@ -45,45 +58,32 @@ enum ProductSellType {
   COLLECTIVE
 }
 
-// --- Product Table ---
 model Product {
-  id    String @id @default(uuid())
-  title String
-  slug  String @unique
-
-  description String? @db.Text
-
+  id             String          @id @default(uuid())
+  title          String
+  slug           String          @unique
+  description    String?         @db.Text
   specifications Json?
-
-  sellType ProductSellType @default(FIXED_PRICE)
-  price    Float?
-
-  isActive Boolean @default(true)
-
-  artistId String
-
-  // Foreign Keys & Relations
-  categoryId String
-  category   Category       @relation(fields: [categoryId], references: [id])
-  images     ProductImage[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sellType       ProductSellType @default(FIXED_PRICE)
+  price          Float?
+  isActive       Boolean         @default(true)
+  artistId       String
+  categoryId     String
+  category       Category        @relation(fields: [categoryId], references: [id])
+  images         ProductImage[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orderItems     OrderItem[]
 }
 
-// --- Product Image Table ---
 model ProductImage {
-  id        String  @id @default(uuid())
-  url       String
-  isPrimary Boolean @default(false)
-
-  displayOrder Int @default(0)
-
-  // Foreign Key & Relation
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  url          String
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
 }
 
 model Banner {
@@ -97,4 +97,49 @@ model Banner {
   updatedAt    DateTime @updatedAt
 
   @@map("banners")
+}
+
+model Order {
+  id              String         @id @default(uuid())
+  totalAmount     Float
+  paymentStatus   PaymentStatus  @default(PENDING)
+  paymentGateway  String
+  transactionId   String?        @unique
+  shippingAddress Json
+  billingAddress  Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  orderPayments   OrderPayment[]
+}
+
+model OrderItem {
+  id           String  @id @default(uuid())
+  productName  String
+  productImage String
+  variant      Json?
+  quantity     Int
+  unitPrice    Float
+  totalPrice   Float
+  weightKg     Float?
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model OrderPayment {
+  id              String        @id @default(uuid())
+  orderId         String
+  amount          Float
+  gateway         String        @default("SSLCOMMERZ")
+  transactionId   String        @unique
+  status          PaymentStatus @default(PENDING)
+  gatewayResponse Json?
+  errorMessage    String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  order           Order         @relation(fields: [orderId], references: [id])
+}
+
+enum PaymentGateway {
+  SSLCOMMERZ
+  COD
 }

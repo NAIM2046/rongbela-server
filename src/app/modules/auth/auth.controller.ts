@@ -17,7 +17,7 @@ const isProd = EnvVars.NODE_ENV === "production";
 
 export const login = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  //console.log("Login request received with email:", email , password );
+  console.log("Login request received with email:", email , password );
 
   const { accessToken, refreshToken, role } = await loginService({
     email,
