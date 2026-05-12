@@ -1,0 +1,71 @@
+# ── Stage 1: builder ──────────────────────────────────────────────────────────
+# We use a full Node 24 Alpine image to compile TypeScript and generate Prisma client.
+# Alpine is a tiny Linux distro — keeps the image small.
+FROM node:24-alpine AS builder
+
+# corepack is built into Node and manages package managers.
+# This pins pnpm to an exact version so every build (local, CI, teammate) uses identical pnpm.
+RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+
+WORKDIR /app
+
+# Copy ONLY the package files first.
+# Docker caches each step — if these files haven't changed, it skips re-installing
+# dependencies on the next build. This makes rebuilds much faster.
+COPY package.json pnpm-lock.yaml ./
+
+# Copy prisma schema before install because postinstall may trigger prisma generate.
+# We need the schema file present for that to succeed.
+COPY prisma ./prisma
+
+# --frozen-lockfile: if pnpm-lock.yaml is out of sync with package.json, the build FAILS.
+# This is intentional — it prevents "works on my machine" dependency drift.
+# We install ALL deps here (including devDependencies) because we need
+# typescript, ts-node-dev, prisma CLI etc. to compile.
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the source code.
+# This step comes after install so that changing your source code
+# doesn't invalidate the dependency cache layer above.
+COPY . .
+
+# Generate the Prisma client for the Linux/Alpine target platform.
+# This is separate from your local generated client which may be for Mac/Windows.
+RUN pnpm prisma generate
+
+# Compile TypeScript → JavaScript into the dist/ folder.
+# Uses your tsconfig.json settings (outDir: dist etc.)
+RUN pnpm build
+
+
+# ── Stage 2: runner ───────────────────────────────────────────────────────────
+# Fresh minimal image — we copy only what's needed to RUN the app.
+# The builder stage (with typescript, prisma CLI, source files etc.) is thrown away.
+# This keeps the final production image lean and safe.
+FROM node:24-alpine AS runner
+
+RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy only production dependencies (no typescript, no dev tools).
+# --prod flag means devDependencies are excluded.
+COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
+RUN pnpm install --frozen-lockfile --prod
+
+# Generate Prisma client again in the runner stage.
+# The generated client is platform-specific (linux/alpine here),
+# so it must be generated in the stage it will actually run in.
+RUN pnpm prisma generate
+
+# Copy the compiled JavaScript output from the builder stage.
+# We only need dist/ — not the original TypeScript source files.
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 4000
+
+# Runs node dist/server.js — your compiled entry point.
+CMD ["pnpm", "start"]

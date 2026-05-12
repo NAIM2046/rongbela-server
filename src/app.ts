@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1", router);
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
-    message: "Welcome to JU Transport API",
+    message: "Welcome to Karutw API",
   });
 });
 app.post("/health", (req: Request, res: Response) => {
@@ -29,5 +29,5 @@ app.post("/health", (req: Request, res: Response) => {
   });
 });
 app.use(globalErrorHandler);
-
+//
 export default app;

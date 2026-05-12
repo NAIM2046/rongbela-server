@@ -18,6 +18,7 @@ export const loginService = async (payload: {
       throw new ApiError(400, "Email is required for login");
     }
 
+    //new service written fastly
     const user = await prisma.user.findUnique({
       where: {
         email: email,

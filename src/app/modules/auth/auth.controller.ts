@@ -24,7 +24,8 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     password,
   });
  // console.log("Login successful, generated tokens for user:", accessToken, refreshToken, role);
-
+  //we have hacn
+  //we have hacn
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: isProd, // HTTPS only in production
