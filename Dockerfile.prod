@@ -65,7 +65,7 @@ RUN pnpm prisma generate
 # We only need dist/ — not the original TypeScript source files.
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 4000
+EXPOSE 5000
 
 # Runs node dist/server.js — your compiled entry point.
 CMD ["pnpm", "start"]
