@@ -1,58 +1,70 @@
 # ── Stage 1: builder ──────────────────────────────────────────────────────────
+# We use a full Node 24 Alpine image to compile TypeScript and generate Prisma client.
+# Alpine is a tiny Linux distro — keeps the image small.
 FROM node:24-alpine AS builder
 
-# Pin pnpm to exact version
+# corepack is built into Node and manages package managers.
+# This pins pnpm to an exact version so every build (local, CI, teammate) uses identical pnpm.
 RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
 
 WORKDIR /app
 
-# Copy package files and prisma schema before install.
-# prisma schema must exist before install in case postinstall triggers prisma generate.
+# Copy ONLY the package files first.
+# Docker caches each step — if these files haven't changed, it skips re-installing
+# dependencies on the next build. This makes rebuilds much faster.
 COPY package.json pnpm-lock.yaml ./
-COPY prisma ./prisma
-COPY src/prisma.config.ts ./src/prisma.config.ts
 
-# Install all dependencies including devDependencies (typescript, prisma CLI etc.)
-# --frozen-lockfile: fails if lockfile is out of sync. No version drift.
+# Copy prisma schema before install because postinstall may trigger prisma generate.
+# We need the schema file present for that to succeed.
+COPY prisma ./prisma
+
+# --frozen-lockfile: if pnpm-lock.yaml is out of sync with package.json, the build FAILS.
+# This is intentional — it prevents "works on my machine" dependency drift.
+# We install ALL deps here (including devDependencies) because we need
+# typescript, ts-node-dev, prisma CLI etc. to compile.
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client into the fixed path defined in schema.prisma (node_modules/.prisma/client)
-# This path is predictable and easy to copy between stages.
-RUN pnpm prisma generate
-
-# Copy the rest of the source code
+# Copy the rest of the source code.
+# This step comes after install so that changing your source code
+# doesn't invalidate the dependency cache layer above.
 COPY . .
 
-# Compile TypeScript → JavaScript into dist/ folder using tsconfig.json settings
+# Generate the Prisma client for the Linux/Alpine target platform.
+# This is separate from your local generated client which may be for Mac/Windows.
+RUN pnpm prisma generate
+
+# Compile TypeScript → JavaScript into the dist/ folder.
+# Uses your tsconfig.json settings (outDir: dist etc.)
 RUN pnpm build
 
 
 # ── Stage 2: runner ───────────────────────────────────────────────────────────
 FROM node:24-alpine AS runner
 
+# We still need corepack for pnpm
 RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy package files and install production dependencies only.
-# --prod: skips devDependencies (no typescript, no prisma CLI etc.)
+# 1. Copy only what is needed for production installs
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
-COPY src/prisma.config.ts ./src/prisma.config.ts
+
+# 2. Install production dependencies
 RUN pnpm install --frozen-lockfile --prod
 
-# Generate Prisma client in the runner stage too.
-# The binary is platform-specific (linux/alpine) so it must be
-# generated in the exact environment it will run in.
-RUN pnpm prisma generate
+# 3. FIX: Copy the generated Prisma Client from the builder stage
+# Prisma generates the client into node_modules/.prisma by default.
+# We copy it from the builder so we don't need the 'prisma' CLI here.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/generated ./generated
 
-# Copy compiled JavaScript from the builder stage.
-# Only dist/ is needed — no TypeScript source in production.
+# 4. Copy the compiled JavaScript
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
 
-# Runs node dist/server.js via the start script in package.json
-CMD ["pnpm", "start"]
+# Start the server;
+CMD ["node", "dist/index.js"]
