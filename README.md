@@ -1,0 +1,1 @@
+![Deploy Status](https://github.com/NexovateLabs/karutw-server/actions/workflows/deploy.yml/badge.svg)
