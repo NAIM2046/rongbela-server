@@ -59,7 +59,7 @@ RUN pnpm install --frozen-lockfile --prod
 # Prisma generates the client into node_modules/.prisma by default.
 # We copy it from the builder so we don't need the 'prisma' CLI here.
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 # 3. Copy the compiled JS
 COPY --from=builder /app/dist ./dist
