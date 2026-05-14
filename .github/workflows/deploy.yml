@@ -39,21 +39,21 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          # Generate a unique version tag
           VERSION="v$(date +%Y%m%d)-${GITHUB_SHA::7}"
-          # Build using your Dockerfile.prod
+          # Build normally
           docker build -f Dockerfile.prod -t karutw-server:latest -t karutw-server:$VERSION .
-          # Save image to a temporary file for streaming
-          docker save karutw-server:latest karutw-server:$VERSION > server_image.tar
 
-      - name: Stream and Load to VPS
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "server_image.tar"
-          target: "/tmp"
+      - name: Direct Stream to VPS
+        run: |
+          # 1. Setup the SSH Key locally on the GitHub Runner
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          # 2. THE MAGIC PIPE
+          # We 'save' the image and 'pipe' it directly over SSH to the 'docker load' command.
+          # This skips the temporary .tar file and scp entirely.
+          docker save karutw-server:latest | ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@${{ secrets.HOST }} "docker load"
 
       - name: Execute Remote Deploy
         uses: appleboy/ssh-action@master
@@ -62,13 +62,6 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # 1. Load the image from the temp file
-            docker load < /tmp/server_image.tar
-            rm /tmp/server_image.tar
-            
-            # 2. Restart the container
             cd /var/www/projects/karutw
             docker compose -f docker-compose.prod.yml up -d karutw-server
-            
-            # 3. Cleanup: Keep only last 3 versions to save 50GB disk space
-            docker images --format '{{.Repository}}:{{.Tag}}' | grep karutw-server | tail -n +4 | xargs -r docker rmi
+            docker image prune -f # Keep that 50GB disk clean
