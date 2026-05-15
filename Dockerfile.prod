@@ -58,10 +58,11 @@ COPY prisma.config.ts ./prisma.config.ts
 # This includes @prisma/client package
 RUN pnpm install --frozen-lockfile --prod
 
-# Generate Prisma Client in the runner stage
+# Generate Prisma Client in the runner stage using npx
+# npx temporarily downloads prisma CLI, runs generate, then discards it
 # This ensures all Prisma runtime dependencies are properly installed
 # and the client is built for the exact environment it will run in (alpine linux)
-RUN pnpm prisma generate
+RUN npx prisma generate
 
 # Copy the compiled JavaScript from builder stage
 COPY --from=builder /app/dist ./dist
