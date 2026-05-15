@@ -17,7 +17,7 @@ COPY package.json pnpm-lock.yaml ./
 # Copy prisma schema before install because postinstall may trigger prisma generate.
 # We need the schema file present for that to succeed.
 COPY prisma ./prisma
-COPY src/prisma.config.ts ./src/prisma.config.ts
+COPY prisma.config.ts ./prisma.config.ts
 
 # --frozen-lockfile: if pnpm-lock.yaml is out of sync with package.json, the build FAILS.
 # This is intentional — it prevents "works on my machine" dependency drift.
