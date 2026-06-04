@@ -1,57 +1,57 @@
-name: Deploy Backend to VPS
+# name: Deploy Backend to VPS
 
-on:
-  push:
-    branches: [main]
+# on:
+#   push:
+#     branches: [main]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/karutw-server
+# env:
+#   REGISTRY: ghcr.io
+#   IMAGE_NAME: ${{ github.repository_owner }}/karutw-server
   
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
     
-    permissions:
-      contents: read
-      packages: write
+#     permissions:
+#       contents: read
+#       packages: write
 
-    steps:
-      # Step 1: Download your backend code from GitHub
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       # Step 1: Download your backend code from GitHub
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      # Step 2: Log in to GitHub Container Registry (ghcr.io)
-      # This is free storage for your Docker images
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+#       # Step 2: Log in to GitHub Container Registry (ghcr.io)
+#       # This is free storage for your Docker images
+#       - name: Log in to GitHub Container Registry
+#         uses: docker/login-action@v3
+#         with:
+#           registry: ghcr.io
+#           username: ${{ github.actor }}
+#           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build the production Docker image and push it to GHCR
-      # Tags it with both commit SHA (exact version) and 'latest'
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.prod
-          push: true
-          tags: |
-              ghcr.io/nexovatelabs/karutw-server:${{ github.sha }}
-              ghcr.io/nexovatelabs/karutw-server:latest
+#       # Step 3: Build the production Docker image and push it to GHCR
+#       # Tags it with both commit SHA (exact version) and 'latest'
+#       - name: Build and push Docker image
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           file: Dockerfile.prod
+#           push: true
+#           tags: |
+#               ghcr.io/nexovatelabs/karutw-server:${{ github.sha }}
+#               ghcr.io/nexovatelabs/karutw-server:latest
 
-      # Step 4: SSH into your VPS and deploy
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            cd /opt/karutw
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.prod.yml pull backend
-            docker compose -f docker-compose.prod.yml up -d backend
-            docker system prune -f
+#       # Step 4: SSH into your VPS and deploy
+#       - name: Deploy to VPS
+#         uses: appleboy/ssh-action@v1.0.0
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ${{ secrets.VPS_USER }}
+#           key: ${{ secrets.VPS_SSH_KEY }}
+#           script: |
+#             cd /opt/karutw
+#             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+#             docker compose -f docker-compose.prod.yml pull backend
+#             docker compose -f docker-compose.prod.yml up -d backend
+#             docker system prune -f
