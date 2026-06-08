@@ -2,8 +2,9 @@
 import { Request, Response } from "express";
 import {
   
+  AuthServices,
   getMeService,
-  loginService,
+  
   logoutService,
   refreshTokenService,
 } from "./auth.service";
@@ -11,42 +12,72 @@ import { EnvVars } from "../../config/env";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import ApiError from "../../error/ApiError";
+import { LoginUserDto } from "./login.dto";
+import httpStatus from 'http-status';
 
-
-const isProd = EnvVars.NODE_ENV === "production";
-
+const isProd = process.env.NODE_ENV === "production";
 export const login = catchAsync(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-  console.log("Login request received with email:", email , password );
+  // -----------------------------
+  // Validate Request Body
+  // -----------------------------
+  const Zvalidation = await LoginUserDto.safeParseAsync(req.body);
 
-  const { accessToken, refreshToken, role } = await loginService({
-    email,
-    password,
-  });
- // console.log("Login successful, generated tokens for user:", accessToken, refreshToken, role);
-  //we have hacn
-  //we have hacn
+  if (!Zvalidation.success) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Validation Error: " +
+        Zvalidation.error.issues
+          .map((i) => `${String(i.path[0])} - ${i.message}`)
+          .join(", "),
+    );
+  }
+
+  // -----------------------------
+  // Business Logic: Login User
+  // -----------------------------
+  const result = await AuthServices.loginServices(Zvalidation.data);
+
+  // CASE 1: Service requests a Next Step (OTP or PASSWORD)
+  // We do NOT set cookies yet. just return the instruction to frontend.
+  if ("nextStep" in result) {
+    return sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: `Please proceed to ${result.nextStep}`,
+      data: result, // { nextStep: "OTP" }
+    });
+  }
+
+  // CASE 2: Login Complete (We have tokens)
+  // FIX: result does NOT have .data. The result IS the data.
+  const { accessToken, refreshToken, user } = result as any;
+
+  const isProd = EnvVars.NODE_ENV === "production";
+
+  // Set Cookies
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: isProd, // HTTPS only in production
+    secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    maxAge: 1000 * 60 * 15, // 15 minutes
+    maxAge: 30 * 60 * 1000, // 30 mins
   });
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: isProd, // HTTPS only in production
+    secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
-  sendResponse(res, {
-    statusCode: 200,
+  // Send Response (Tokens are hidden in cookies)
+  return sendResponse(res, {
+    statusCode: httpStatus.OK,
     success: true,
     message: "Login successful",
-    data: { role },
+    data: { user },
   });
 });
+
 
 export const refreshToken = catchAsync(async (req: Request, res: Response) => {
   // READ FROM COOKIE — NOT BODY

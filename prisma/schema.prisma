@@ -8,7 +8,8 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
+  ADMIN 
+  CUSTOMER
 }
 
 enum PaymentStatus {
@@ -31,9 +32,10 @@ enum OrderStatus {
 model User {
   id       String @id @default(uuid())
   name     String
-  email    String @unique
-  role     Role   @default(ADMIN)
-  password String
+  email    String? @unique
+  phone    String? @unique
+  role     Role   @default(CUSTOMER)
+  password String?
 }
 
 model Category {
@@ -75,26 +77,27 @@ model Product {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   orderItems     OrderItem[]
+  productVariants ProductVariant[]
 }
 
-// model ProductVariant {
-//   id            String         @id @default(uuid())
-//   productId     String
-//   sku           String         @unique
-//   price         Decimal        @db.Decimal(10, 2)
-//   discountPrice Decimal?       @db.Decimal(10, 2)
-//   stock         Int            @default(0)
-//   attributes    Json
-//   weight        Float?         @default(0.5)
-//   length        Float?         @default(10)
-//   width         Float?         @default(10)
-//   height        Float?         @default(5)
-//   version       Int            @default(0)
-//   imageId       String?
-//   isActive      Boolean        @default(true)
-//   image         ProductImage?  @relation(fields: [imageId], references: [id])
-//   product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-// }
+model ProductVariant {
+  id            String         @id @default(uuid())
+  productId     String
+  sku           String         @unique
+  price         Decimal        @db.Decimal(10, 2)
+  discountPrice Decimal?       @db.Decimal(10, 2)
+  stock         Int            @default(0)
+  attributes    Json
+  weight        Float?         @default(0.5)
+  length        Float?         @default(10)
+  width         Float?         @default(10)
+  height        Float?         @default(5)
+  version       Int            @default(0)
+  imageId       String?
+  isActive      Boolean        @default(true)
+  image         ProductImage?  @relation(fields: [imageId], references: [id])
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
 
 model ProductImage {
   id           String   @id @default(uuid())
@@ -104,6 +107,7 @@ model ProductImage {
   productId    String
   product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
+  variants     ProductVariant[]
 }
 
 model Banner {

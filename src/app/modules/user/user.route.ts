@@ -1,12 +1,16 @@
-// src/app/modules/customer/user/user.route.ts
 import express from "express";
-import {
-  createUser,
-} from "./user.controller";
-import multer from "multer";
 import { auth } from "../auth/auth.middleware";
+import { changePassword, getProfile, requestUpdateContact, setPassword, updateBasicInfo, verifyUpdateContact } from "./user.controller";
+
+
+
 const router = express.Router();
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-router.post("/", auth("ADMIN"), createUser);
+ 
+router.get("/get-profile", auth(), getProfile)
+router.put("/basic-info", auth(),updateBasicInfo );
+router.post("/request-update-contact", auth(), requestUpdateContact );
+router.post("/verify-update-contact", auth(), verifyUpdateContact );
+router.post("/set-password", auth(), setPassword);
+router.post("/change-password", auth(), changePassword);
+
 export const UserRoutes = router;
