@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output = "../node_modules/.prisma/client"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -8,7 +8,7 @@ datasource db {
 }
 
 enum Role {
-  ADMIN 
+  ADMIN
   CUSTOMER
 }
 
@@ -29,13 +29,23 @@ enum OrderStatus {
   RETURNED
 }
 
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+}
+
 model User {
-  id       String @id @default(uuid())
-  name     String
-  email    String? @unique
-  phone    String? @unique
-  role     Role   @default(CUSTOMER)
-  password String?
+  id        String     @id @default(uuid())
+  name      String
+  email     String?    @unique
+  phone     String?    @unique
+  role      Role       @default(CUSTOMER)
+  password  String?
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  addresses Address[]
 }
 
 model Category {
@@ -66,48 +76,66 @@ model Product {
   title          String
   slug           String          @unique
   description    String?         @db.Text
-  specifications Json?
+  specifications Json? // টেকনিক্যাল বা স্পেসিফিক ফিল্ড ডেটার জন্য চমৎকার
   sellType       ProductSellType @default(FIXED_PRICE)
-  price          Float?
   isActive       Boolean         @default(true)
-  artistId       String
-  categoryId     String
-  category       Category        @relation(fields: [categoryId], references: [id])
-  images         ProductImage[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  orderItems     OrderItem[]
+  isFeatured     Boolean         @default(false) // 💡 নতুন যোগ করা হয়েছে: হোমপেজে দেখানোর জন্য
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  images          ProductImage[]
   productVariants ProductVariant[]
+  orderItems      OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 💡 পারফরম্যান্স অপ্টিমাইজেশনের জন্য ইনডেক্সিং
+  @@index([categoryId, isActive])
+  @@index([createdAt])
 }
 
 model ProductVariant {
-  id            String         @id @default(uuid())
-  productId     String
-  sku           String         @unique
-  price         Decimal        @db.Decimal(10, 2)
-  discountPrice Decimal?       @db.Decimal(10, 2)
-  stock         Int            @default(0)
-  attributes    Json
-  weight        Float?         @default(0.5)
-  length        Float?         @default(10)
-  width         Float?         @default(10)
-  height        Float?         @default(5)
-  version       Int            @default(0)
-  imageId       String?
-  isActive      Boolean        @default(true)
-  image         ProductImage?  @relation(fields: [imageId], references: [id])
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id        String @id @default(uuid())
+  productId String
+  sku       String @unique // Stock Keeping Unit
+
+  // 💡 ফিক্স: কারেন্সির জন্য সবসময় Decimal এবং ডিফল্ট ভ্যালু ০.০০
+  price         Decimal  @default(0.00) @db.Decimal(10, 2)
+  discountPrice Decimal? @db.Decimal(10, 2)
+  stock         Int      @default(0)
+  attributes    Json // যেমন: {"color": "Red", "size": "XL"}
+
+  // শিপিং ক্যালকুলেশনের জন্য ডাইমেনশন (চমৎকার সেটআপ)
+  weight Float? @default(0.5)
+  length Float? @default(10)
+  width  Float? @default(10)
+  height Float? @default(5)
+
+  version  Int     @default(0) // 💡 কনকারেন্ট স্টক আপডেট (Race Condition) হ্যান্ডেল করার জন্য বেস্ট
+  isActive Boolean @default(true)
+
+  imageId String?
+  image   ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull) // 💡 ইমেজ ডিলিট হলেও ভ্যারিয়েন্ট ডিলিট হবে না
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, isActive])
 }
 
 model ProductImage {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   url          String
-  isPrimary    Boolean  @default(false)
-  displayOrder Int      @default(0)
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  variants     ProductVariant[]
+  isPrimary    Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  productId String
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants  ProductVariant[]
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
 }
 
 model Banner {
@@ -121,6 +149,86 @@ model Banner {
   updatedAt    DateTime @updatedAt
 
   @@map("banners")
+}
+
+model Address {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  recipientName    String   @map("recipient_name")
+  phone            String
+  alternativePhone String?  @map("alternative_phone")
+  streetAddress    String?  @map("street_address")
+  postalCode       String?  @map("postal_code")
+  exactLocation    String   @map("exact_location")
+  isShipping       Boolean  @default(false) @map("is_shipping")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  districtId String   @map("district_id")
+  district   District @relation(fields: [districtId], references: [id])
+
+  // 🟢 যুক্ত করা হয়েছে: এরিয়া/থানা রিলেশন (ডেলিভারির জন্য সবচেয়ে ইম্পর্ট্যান্ট)
+  areaId String? @map("area_id")
+  area   Area?   @relation(fields: [areaId], references: [id])
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Division {
+  id        String     @id @default(uuid())
+  name      String
+  districts District[]
+
+  @@map("divisions")
+}
+
+model District {
+  id         String   @id @default(uuid())
+  name       String
+  isDhaka    Boolean  @default(false) @map("is_dhaka")
+  divisionId String   @map("division_id")
+  division   Division @relation(fields: [divisionId], references: [id])
+
+  // 🟢 রিলেশন আপডেট
+  areas     Area[]
+  addresses Address[]
+
+  @@map("districts")
+}
+
+// 🟢 নতুন টেবিল: থামা/উপজেলা/এরিয়া (Pathao/Steadfast API-র সাথে সিঙ্ক করতে সুবিধা হবে)
+model Area {
+  id         String    @id @default(uuid())
+  name       String
+  districtId String    @map("district_id")
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  addresses  Address[]
+
+  @@map("areas")
+}
+
+enum ZoneType {
+  SAME_DISTRICT // লোকাল ডেলিভারি (আপনার নিজের জেলার ভেতরে)
+  SAME_DIVISION // নিজের বিভাগের অন্য জেলাগুলোতে 
+  DHAKA_CITY // ঢাকা সিটি (যেহেতু ই-কমার্সে ঢাকার অর্ডার সবচেয়ে বেশি থাকে)
+  CROSS_DIVISION // একদম অন্য বিভাগে (যেমন: চট্টগ্রাম থেকে রংপুর বা খুলনা)
+}
+
+// 🟢 অ্যাডমিন শিপিং কনফিগারেশন টেবিল (সহজ ও ডাইনামিক)
+model ShippingConfiguration {
+  id            String   @id @default(uuid())
+  zoneType      ZoneType @unique // জোন অনুযায়ী একটিই রেট কনফিগ থাকবে
+  zoneName      String // অ্যাডমিন প্যানেলে দেখানোর জন্য নাম (যেমন: Inside Dhaka)
+  baseCharge    Float    @map("base_charge") // প্রাথমিক বা সর্বনিম্ন চার্জ
+  baseWeight    Float    @default(1.0) @map("base_weight") // কত কেজি পর্যন্ত বেস চার্জ প্রযোজ্য (যেমন: ১ কেজি)
+  extraPerKg    Float    @map("extra_per_kg") // প্রতি অতিরিক্ত কেজির জন্য চার্জ
+  codCharge     Float    @default(0.0) @map("cod_charge") // ক্যাশ অন ডেলিভারি পারসেন্টেজ (ঐচ্ছিক, যেমন: 1%)
+  estimatedDays String   @map("estimated_days") // ডেলিভারি সময় (যেমন: "2-3 Days")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  @@map("shipping_configurations")
 }
 
 model Order {

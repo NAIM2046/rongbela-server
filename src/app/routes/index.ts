@@ -7,6 +7,8 @@ import { ProductRoutes } from "../modules/product/product.router";
 import { BannerRoutes } from "../modules/BannerManagement/banner.routes";
 import { OrderRoutes } from "../modules/order/order.route";
 import { UserRoutes } from "../modules/user/user.route";
+import { LocationRoutes } from "../modules/location/location.route";
+import { ShippingRoutes } from "../modules/shipping/shipping.routes";
 
 export const router = express.Router();
 
@@ -24,7 +26,7 @@ const appRoutes = [
     route: MediaRoutes,
   },
   {
-    path: "/product",
+    path: "/products",
     route: ProductRoutes,
   },
   {
@@ -38,6 +40,14 @@ const appRoutes = [
   {
     path: "/user",
     route: UserRoutes
+  },
+  {
+    path: "/location",
+    route: LocationRoutes
+  },
+  {
+    path: "/shipping",
+    route: ShippingRoutes
   }
 ];
 

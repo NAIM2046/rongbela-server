@@ -78,6 +78,40 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const { idToken } = req.body;
+  // console.log("Received idToken:", idToken);
+  if (!idToken) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "idToken is required");
+  }
+
+  // FIX: Access googleLoginService through AuthServices
+  const { user, accessToken, refreshToken } =
+    await AuthServices.googleLoginService(idToken);
+
+ 
+  // Set cookies
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 30 * 60 * 1000,
+  });
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Google login successful",
+    data: { user },
+  });
+});
 
 export const refreshToken = catchAsync(async (req: Request, res: Response) => {
   // READ FROM COOKIE — NOT BODY
@@ -155,50 +189,43 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// export const changePassword = catchAsync(
-//   async (req: Request, res: Response) => {
-//     const userId = req.user?.userId;
+export const forgotPassword = catchAsync(
+  async (req: Request, res: Response) => {
+    const { email, phone } = req.body;
 
-//     if (!userId) {
-//       throw new ApiError(401, "Unauthorized access! User ID not found.");
-//     }
+    await AuthServices.forgotPasswordService(email, phone);
 
-//     const result = await AuthServices.changePassword(userId, req.body);
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "If the account exists, an OTP has been sent",
+      data: null,
+    });
+  },
+);
 
-//     sendResponse(res, {
-//       statusCode: 200,
-//       success: true,
-//       message: "Password changed successfully ✅",
-//       data: result,
-//     });
-//   },
-// );
+// =======================
+// RESET PASSWORD
+// =======================
+export const resetPasswordWithOtp = catchAsync(
+  async (req: Request, res: Response) => {
+    const { email, phone, otp, newPassword } = req.body;
 
-// export const forgotPassword = catchAsync(
-//   async (req: Request, res: Response) => {
-//     const { email } = req.body;
-//     const result = await AuthServices.forgotPassword(email);
+    await AuthServices.resetPasswordWithOtpService(
+      email,
+      phone,
+      otp,
+      newPassword,
+    );
 
-//     sendResponse(res, {
-//       statusCode: 200,
-//       success: true,
-//       message: result.message,
-//       data: null,
-//     });
-//   },
-// );
-
-// export const resetPassword = catchAsync(async (req: Request, res: Response) => {
-//   // ফ্রন্টএন্ড থেকে email, otp এবং newPassword পাঠাতে হবে
-//   const result = await AuthServices.resetPassword(req.body);
-
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: result.message,
-//     data: null,
-//   });
-// });
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Password reset successful",
+      data: null,
+    });
+  },
+);
 
 export const AuthController = {
   login,
