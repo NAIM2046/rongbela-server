@@ -96,3 +96,16 @@ export const deleteCategory = catchAsync(
     });
   },
 );
+
+export const getFlatCategories = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await productCategoryService.getFlatCategories();
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Flat categories fetched successfully",
+      data: result,
+    });
+  },
+);

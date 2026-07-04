@@ -13,7 +13,7 @@ import { sendMessageBySms } from "../../lib/otp/sendMessageBySms";
 import { verifyGoogleToken } from "../../lib/googleAuth/googleAuthHelper";
 const loginSuccess = (user: any) => {
   // আপনার নতুন স্কিমা অনুযায়ী রোল একটি Single Enum, তাই এটিকে Array তে রূপান্তর করা হয়েছে
-  const role = user.role ;
+  const role = user.role;
 
   const accessToken = generateAccessToken(user.id, role);
   const refreshToken = generateRefreshToken(user.id, role);
@@ -36,57 +36,61 @@ const loginSuccess = (user: any) => {
 // ------------------------------------
 
 const loginServices = async (payload: ILoginUser) => {
-  const { step, password, otp } = payload;
+  try {
+    const { step, password, otp } = payload;
 
-  // ১. ডাটা নরমালাইজেশন
-  const identifier = payload.identifier.trim().toLowerCase();
-  const isEmailInput = identifier.includes("@");
+    // ১. ডাটা নরমালাইজেশন
+    const identifier = payload.identifier.trim().toLowerCase();
+    const isEmailInput = identifier.includes("@");
 
-  // =========================================================
-  // STEP 1: IDENTIFIER (ইউজার খোঁজা অথবা নতুন ইউজার তৈরি করা)
-  // =========================================================
-  if (step === "IDENTIFIER") {
-    let user = await prisma.user.findUnique({
-      where: isEmailInput ? { email: identifier } : { phone: identifier },
-    });
+    // =========================================================
+    // STEP 1: IDENTIFIER (ইউজার খোঁজা অথবা নতুন ইউজার তৈরি করা)
+    // =========================================================
+    if (step === "IDENTIFIER") {
+      let user = await prisma.user.findUnique({
+        where: isEmailInput ? { email: identifier } : { phone: identifier },
+      });
 
-    // যদি ইউজার না থাকে তবে নতুন ইউজার তৈরি হবে
-    if (!user) {
-      try {
-        user = await prisma.user.create({
-          data: {
-            // স্কিমা অনুযায়ী name এবং password রিকোয়ার্ড (Required), তাই ডিফল্ট ভ্যালু দেওয়া হয়েছে
-            name: isEmailInput ? identifier.split("@")[0] : "Customer",
-            email: isEmailInput ? identifier : null,
-            phone: !isEmailInput ? identifier : null,
-            password: "", // খালি স্ট্রিং মানে এখনও পাসওয়ার্ড সেট করা হয়নি (OTP দিয়ে লগইন করবে)
-            role: "CUSTOMER",
-          },
-        });
-      } catch (error: any) {
-        // রেস কন্ডিশন (Race Condition) হ্যান্ডেল করার জন্য কনফ্লিক্ট প্রটেকশন
-        if (error.code === "P2002") {
-          user = await prisma.user.findUnique({
-            where: isEmailInput ? { email: identifier } : { phone: identifier },
-          });
-        } else throw error;
+      // যদি ইউজার না থাকে তবে নতুন ইউজার তৈরি হবে
+      if (!user) {
+        // try {
+        //   user = await prisma.user.create({
+        //     data: {
+        //       // স্কিমা অনুযায়ী name এবং password রিকোয়ার্ড (Required), তাই ডিফল্ট ভ্যালু দেওয়া হয়েছে
+        //       name: isEmailInput ? identifier.split("@")[0] : "Customer",
+        //       email: isEmailInput ? identifier : null,
+        //       phone: !isEmailInput ? identifier : null,
+        //       password: "", // খালি স্ট্রিং মানে এখনও পাসওয়ার্ড সেট করা হয়নি (OTP দিয়ে লগইন করবে)
+        //       role: "CUSTOMER",
+        //     },
+        //   });
+        // } catch (error: any) {
+        //   // রেস কন্ডিশন (Race Condition) হ্যান্ডেল করার জন্য কনফ্লিক্ট প্রটেকশন
+        //   if (error.code === "P2002") {
+        //     user = await prisma.user.findUnique({
+        //       where: isEmailInput
+        //         ? { email: identifier }
+        //         : { phone: identifier },
+        //     });
+        //   } else throw error;
+        // }
+        throw new ApiError(400, "User not found. Please register first.");
       }
-    }
 
-    // ২. পরবর্তী স্টেপ নির্ধারণ করা
-    // যদি ইউজারের পাসওয়ার্ড সেট করা থাকে (খালি স্ট্রিং না হয়), তবে PASSWORD স্টেপে যাবে
-    if (user && user.password !== "") {
-      return { nextStep: "PASSWORD" };
-    }
+      // ২. পরবর্তী স্টেপ নির্ধারণ করা
+      // যদি ইউজারের পাসওয়ার্ড সেট করা থাকে (খালি স্ট্রিং না হয়), তবে PASSWORD স্টেপে যাবে
+      if (user && user.password !== "") {
+        return { nextStep: "PASSWORD" };
+      }
 
-    // ৩. ওটিপি (OTP) লজিক
-    const type = isEmailInput ? "email" : "phone";
-    const generatedOtp = await OtpService.createOtp(type, identifier);
-    console.log(`[Sending OTP to ${identifier}]:`, generatedOtp);
+      // ৩. ওটিপি (OTP) লজিক
+      const type = isEmailInput ? "email" : "phone";
+      const generatedOtp = await OtpService.createOtp(type, identifier);
+      console.log(`[Sending OTP to ${identifier}]:`, generatedOtp);
 
-    if (isEmailInput) {
-      const emailSubject = "Elumpu - Your Login OTP";
-      const emailHtml = `
+      if (isEmailInput) {
+        const emailSubject = "Elumpu - Your Login OTP";
+        const emailHtml = `
               <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
                 <h2 style="color: #333; text-align: center;">Welcome to Elumpu!</h2>
                 <p style="color: #555; font-size: 16px;">Hello,</p>
@@ -98,70 +102,72 @@ const loginServices = async (payload: ILoginUser) => {
               </div>
             `;
 
-      await sendMessageByEmail(identifier, emailSubject, emailHtml);
-    } else {
-      const smsMessage = `Your Elumpu login OTP is: ${generatedOtp}. It will expire in 5 minutes. Please do not share this code.`;
-      await sendMessageBySms(identifier, smsMessage);
+        await sendMessageByEmail(identifier, emailSubject, emailHtml);
+      } else {
+        const smsMessage = `Your Elumpu login OTP is: ${generatedOtp}. It will expire in 5 minutes. Please do not share this code.`;
+        await sendMessageBySms(identifier, smsMessage);
+      }
+
+      return { nextStep: "OTP" };
     }
 
-    return { nextStep: "OTP" };
-  }
+    // =========================================================
+    // STEP 2: PASSWORD LOGIN
+    // =========================================================
+    if (step === "PASSWORD") {
+      if (!password) throw new ApiError(400, "Password is required");
 
-  // =========================================================
-  // STEP 2: PASSWORD LOGIN
-  // =========================================================
-  if (step === "PASSWORD") {
-    if (!password) throw new ApiError(400, "Password is required");
+      const user = await prisma.user.findUnique({
+        where: isEmailInput ? { email: identifier } : { phone: identifier },
+      });
 
-    const user = await prisma.user.findUnique({
-      where: isEmailInput ? { email: identifier } : { phone: identifier },
-    });
+      if (!user || !user.password) {
+        throw new ApiError(400, "Password is not set for this user");
+      }
 
-   if (!user || !user.password) {
-  throw new ApiError(400, "Password is not set for this user");
-}
+      // সরাসরি user.password এর সাথে তুলনা করা হচ্ছে
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) throw new ApiError(400, "Invalid credentials");
 
-    // সরাসরি user.password এর সাথে তুলনা করা হচ্ছে
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) throw new ApiError(400, "Invalid credentials");
-
-    return loginSuccess(user);
-  }
-
-  // =========================================================
-  // STEP 3: OTP LOGIN
-  // =========================================================
-  if (step === "OTP") {
-    if (!otp) throw new ApiError(400, "OTP is required");
-    const type = isEmailInput ? "email" : "phone";
-    
-    const isValid = await OtpService.verifyOtp(type, identifier, otp);
-    if (!isValid) {
-      throw new ApiError(400, "Invalid or expired OTP");
-    }
-    
-    const user = await prisma.user.findUnique({
-      where: isEmailInput ? { email: identifier } : { phone: identifier },
-    });
-    
-    if (!user) {
-      throw new ApiError(400, "User not found");
+      return loginSuccess(user);
     }
 
-    // আপনার নতুন স্কিমাতে authProvider বা verification টেবিল না থাকায় আপডেট পার্টটি বাদ দেওয়া হয়েছে।
+    // =========================================================
+    // STEP 3: OTP LOGIN
+    // =========================================================
+    if (step === "OTP") {
+      if (!otp) throw new ApiError(400, "OTP is required");
+      const type = isEmailInput ? "email" : "phone";
 
-    return loginSuccess(user);
+      const isValid = await OtpService.verifyOtp(type, identifier, otp);
+      if (!isValid) {
+        throw new ApiError(400, "Invalid or expired OTP");
+      }
+
+      const user = await prisma.user.findUnique({
+        where: isEmailInput ? { email: identifier } : { phone: identifier },
+      });
+
+      if (!user) {
+        throw new ApiError(400, "User not found");
+      }
+
+      // আপনার নতুন স্কিমাতে authProvider বা verification টেবিল না থাকায় আপডেট পার্টটি বাদ দেওয়া হয়েছে।
+
+      return loginSuccess(user);
+    }
+
+    throw new ApiError(400, "Invalid login step");
+  } catch (error: any) {
+    throw error;
   }
-
-  throw new ApiError(400, "Invalid login step");
 };
-
 
 const googleLoginService = async (idToken: string) => {
   try {
     // ১️⃣ গুগল টোকেন ভেরিফাই করে ডেটা নেওয়া হচ্ছে
     const { email, name, picture, sub } = await verifyGoogleToken(idToken);
-    
+
     if (!email) {
       throw new ApiError(400, "Google login failed: email missing");
     }
@@ -176,13 +182,12 @@ const googleLoginService = async (idToken: string) => {
       user = await prisma.user.create({
         data: {
           email,
-          name: name || "", 
+          name: name || "",
           status: "ACTIVE",
-          role: "CUSTOMER", 
+          role: "CUSTOMER",
         },
       });
     } else {
-      
       if (user.status === "INACTIVE" || user.status === "BANNED") {
         throw new ApiError(403, "Your account has been suspended.");
       }
@@ -190,11 +195,13 @@ const googleLoginService = async (idToken: string) => {
 
     // ৫️⃣ আপনার প্রজেক্টের এক্সিস্টিং টোকেন জেনারেটর ফাংশন কল করে রিটার্ন করা হচ্ছে
     return loginSuccess(user);
-
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error("Error in googleLoginService:", error);
-    throw new ApiError(500, "Internal server error during Google authentication");
+    throw new ApiError(
+      500,
+      "Internal server error during Google authentication",
+    );
   }
 };
 
@@ -212,8 +219,8 @@ const forgotPasswordService = async (email?: string, phone?: string) => {
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          email ? { email: email.trim() } : undefined, 
-          phone ? { phone: phone.trim() } : undefined
+          email ? { email: email.trim() } : undefined,
+          phone ? { phone: phone.trim() } : undefined,
         ].filter(Boolean) as any,
       },
     });
@@ -257,13 +264,15 @@ const forgotPasswordService = async (email?: string, phone?: string) => {
       success: true,
       message: "If the account exists, an OTP has been sent.",
     };
-
   } catch (error) {
     // যদি এটি অলরেডি কোনো ApiError হয়, তবে সরাসরি রি-থ্রো করা হচ্ছে
     if (error instanceof ApiError) throw error;
-    
+
     console.error("Error in forgotPasswordService:", error);
-    throw new ApiError(500, "Internal server error during password reset request");
+    throw new ApiError(
+      500,
+      "Internal server error during password reset request",
+    );
   }
 };
 
@@ -279,15 +288,18 @@ const resetPasswordWithOtpService = async (
   try {
     // কোনো ইনপুট খালি থাকলে আর্লি এরর থ্রো
     if ((!email && !phone) || !otp || !newPassword) {
-      throw new ApiError(400, "Email/Phone, OTP, and new password are required");
+      throw new ApiError(
+        400,
+        "Email/Phone, OTP, and new password are required",
+      );
     }
 
     // ১. ইউজার খোঁজা
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          email ? { email: email.trim() } : undefined, 
-          phone ? { phone: phone.trim() } : undefined
+          email ? { email: email.trim() } : undefined,
+          phone ? { phone: phone.trim() } : undefined,
         ].filter(Boolean) as any,
       },
     });
@@ -300,7 +312,7 @@ const resetPasswordWithOtpService = async (
     const type = email ? "email" : "phone";
     const identifier = (email || phone) as string;
     const isValidOtp = await OtpService.verifyOtp(type, identifier, otp);
-    
+
     if (!isValidOtp) {
       throw new ApiError(400, "Invalid or expired OTP");
     }
@@ -320,16 +332,13 @@ const resetPasswordWithOtpService = async (
       success: true,
       message: "Password has been successfully reset.",
     };
-
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    
+
     console.error("Error in resetPasswordWithOtpService:", error);
     throw new ApiError(500, "Internal server error during password update");
   }
 };
-
-
 
 export const getMeService = async (userId: string) => {
   try {
@@ -376,8 +385,6 @@ export const refreshTokenService = async (oldRefreshToken: string) => {
     throw new ApiError(401, "Invalid or expired refresh token");
   }
 };
-
-
 
 export const AuthServices = {
   loginServices,

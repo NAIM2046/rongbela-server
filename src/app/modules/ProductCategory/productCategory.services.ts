@@ -157,6 +157,20 @@ const deleteCategory = async (id: string) => {
     },
   });
 };
+const getFlatCategories = async (): Promise<{ id: string; name: string; slug: string }[]> => {
+  try {
+    const allCategories = await prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true },
+    });
+    return allCategories;
+  } catch (error) {
+    console.error("Error fetching flat categories:", error);
+    return [];
+  }
+};
+
 export const productCategoryService = {
   createCategory,
   getAllCategories,
@@ -164,4 +178,5 @@ export const productCategoryService = {
   updateCategory,
   deleteCategory,
   getAllCategoriesForHomePage,
+  getFlatCategories,
 };

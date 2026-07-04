@@ -4,7 +4,6 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import ApiError from "../../error/ApiError";
 
-
 // 1. Create Product (Draft)
 export const createProduct = catchAsync(async (req: Request, res: Response) => {
   // সার্ভিস লেয়ার স্কিমা অনুযায়ী এখন সরাসরি বডি পাস করলেই হবে
@@ -19,84 +18,91 @@ export const createProduct = catchAsync(async (req: Request, res: Response) => {
 });
 
 // 2. Product Publish
-export const publishProduct = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const publishProduct = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
 
-  const result = await productService.publishProduct(
-    id as string,
-    req.body
-  );
+    const result = await productService.publishProduct(id as string, req.body);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Product published successfully!",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product published successfully!",
+      data: result,
+    });
+  },
+);
 
 // 3. Get Product By ID
-export const getProductById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await productService.getProductById(id as string);
+export const getProductById = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await productService.getProductById(id as string);
 
-  if (!result) {
-    throw new ApiError(404, "Product not found");
-  }
+    if (!result) {
+      throw new ApiError(404, "Product not found");
+    }
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Product retrieved successfully!",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product retrieved successfully!",
+      data: result,
+    });
+  },
+);
 
 // 4. Update Basic Info (Title, Description, Price etc.)
-export const updateProductInfo = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await productService.updateProductInfo(
-    id as string,
-    req.body
-  );
+export const updateProductInfo = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await productService.updateProductInfo(
+      id as string,
+      req.body,
+    );
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Product basic info updated successfully!",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product basic info updated successfully!",
+      data: result,
+    });
+  },
+);
 
 // 5. Manage Variants (Price, Stock, Add/Remove Variants)
-export const manageVariants = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await productService.manageVariants(id as string, req.body);
+export const manageVariants = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await productService.manageVariants(id as string, req.body);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Product variants updated successfully!",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product variants updated successfully!",
+      data: result,
+    });
+  },
+);
 
 // 6. Add Image
-export const addProductImage = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { url } = req.body;
+export const addProductImage = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { url } = req.body;
 
-  const result = await productService.addProductImageIntoDB(id as string, {
-    url,
-  });
+    const result = await productService.addProductImageIntoDB(id as string, {
+      url,
+    });
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Image added successfully",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Image added successfully",
+      data: result,
+    });
+  },
+);
 
 // 7. Remove Images
 export const removeImages = catchAsync(async (req: Request, res: Response) => {
@@ -134,13 +140,11 @@ export const reorderImages = catchAsync(async (req: Request, res: Response) => {
 
 // 9. Update Status (Active / Inactive)
 export const updateStatus = catchAsync(async (req: Request, res: Response) => {
- 
-
   const { id } = req.params;
   // সার্ভিস মেথড থেকে সাবস্ক্রিপশন এবং ইউজার ভ্যালিডেশন বাদ দেওয়া হয়েছে
   const result = await productService.updateStatus(
     id as string,
-    req.body.isActive
+    req.body.isActive,
   );
 
   sendResponse(res, {
@@ -164,48 +168,53 @@ export const deleteProduct = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const getAllProductsForAdmin = catchAsync(async (req: Request, res: Response) => {
-  const query = req.query;
+export const getAllProductsForAdmin = catchAsync(
+  async (req: Request, res: Response) => {
+    const query = req.query;
 
-  const result = await productService.getAllProductsForAdmin(query);
+    const result = await productService.getAllProductsForAdmin(query);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Admin products retrieved successfully!",
-    data: result.products,
-    meta: result.meta,
-  });
-});
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Admin products retrieved successfully!",
+      data: result.products,
+      meta: result.meta,
+    });
+  },
+);
 
-export const getHomeProducts = catchAsync(async (req: Request, res: Response) => {
-  // ফ্রন্টএন্ড থেকে আসা কুয়েরি প্যারামিটার রিসিভ করা হচ্ছে
-  const query = req.query;
-  
-  // সার্ভিস লেয়ারে কুয়েরি পাস করা হলো
-  const result = await productService.getHomeProducts(query);
+export const getHomeProducts = catchAsync(
+  async (req: Request, res: Response) => {
+    // ফ্রন্টএন্ড থেকে আসা কুয়েরি প্যারামিটার রিসিভ করা হচ্ছে
+    const query = req.query;
+    console.log("get home product route clicked");
+    // সার্ভিস লেয়ারে কুয়েরি পাস করা হলো
+    const result = await productService.getHomeProducts(query);
+    console.log("home product result", result);
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Products retrieved successfully!",
+      data: result.products,
+      meta: result.meta,
+    });
+  },
+);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Products retrieved successfully!",
-    data: result.products,
-    meta: result.meta,
-  });
-});
+export const getProductBySlug = catchAsync(
+  async (req: Request, res: Response) => {
+    const { slug } = req.params;
+    const result = await productService.getProductBySlug(slug as string);
 
-export const getProductBySlug = catchAsync(async (req: Request, res: Response) => {
-  const { slug } = req.params;
-  const result = await productService.getProductBySlug(slug as string);
-
-  if (!result) {
-    throw new ApiError(404, "Product not found");
-  }
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Product retrieved successfully!",
-    data: result,
-  });
-}
+    if (!result) {
+      throw new ApiError(404, "Product not found");
+    }
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product retrieved successfully!",
+      data: result,
+    });
+  },
 );

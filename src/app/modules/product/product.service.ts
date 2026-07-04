@@ -2,24 +2,25 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../../shared/prisma";
 import ApiError from "../../error/ApiError";
 
-
 const generateSlug = (title: string) => {
   if (!title) return "";
 
-  return title
-    .trim()
-    // ১. শুধুমাত্র ইংরেজি বড় হাতের অক্ষরগুলোকে ছোট হাতের বানানো
-    .replace(/[A-Z]/g, (match) => match.toLowerCase())
-    
-    // ২. 💡 ম্যাজিক ফিক্স: বাংলা বর্ণমালার রেঞ্জ (\u0980-\u09FF) সহ কার-চিহ্ন ও যুক্তাক্ষরকে সুরক্ষিত করা
-    // এখানে আমরা ইংরেজি (a-z, 0-9) এবং সম্পূর্ণ বাংলা ব্লক একসাথে অ্যালাউ করছি
-    .replace(/[^a-z0-9\u0980-\u09FF]+/g, "-")
-    
-    // ৩. পাশাপাশি একাধিক ড্যাশ থাকলে একটি ড্যাশে রূপান্তর করা
-    .replace(/-+/g, "-")
-    
-    // ৪. শুরুতে বা শেষে ড্যাশ থাকলে তা কেটে ফেলা
-    .replace(/^-+|-+$/g, "");
+  return (
+    title
+      .trim()
+      // ১. শুধুমাত্র ইংরেজি বড় হাতের অক্ষরগুলোকে ছোট হাতের বানানো
+      .replace(/[A-Z]/g, (match) => match.toLowerCase())
+
+      // ২. 💡 ম্যাজিক ফিক্স: বাংলা বর্ণমালার রেঞ্জ (\u0980-\u09FF) সহ কার-চিহ্ন ও যুক্তাক্ষরকে সুরক্ষিত করা
+      // এখানে আমরা ইংরেজি (a-z, 0-9) এবং সম্পূর্ণ বাংলা ব্লক একসাথে অ্যালাউ করছি
+      .replace(/[^a-z0-9\u0980-\u09FF]+/g, "-")
+
+      // ৩. পাশাপাশি একাধিক ড্যাশ থাকলে একটি ড্যাশে রূপান্তর করা
+      .replace(/-+/g, "-")
+
+      // ৪. শুরুতে বা শেষে ড্যাশ থাকলে তা কেটে ফেলা
+      .replace(/^-+|-+$/g, "")
+  );
 };
 
 // =================================================
@@ -33,23 +34,18 @@ const generateUniqueSlug = async (title: string) => {
   }
   return slug;
 };
+
 interface ICreateProductPayload {
   title: string;
   description?: string;
   categoryId: string;
   specifications?: Record<string, any>;
   sellType?: "FIXED_PRICE" | "COLLECTIVE";
-  
 }
 
-
-// =================================================
-// 1. CREATE PRODUCT (DRAFT)
-// =================================================
 const createProduct = async (payload: ICreateProductPayload) => {
   try {
     const slug = await generateUniqueSlug(payload.title);
-
     const draftProduct = await prisma.product.create({
       data: {
         title: payload.title,
@@ -58,21 +54,18 @@ const createProduct = async (payload: ICreateProductPayload) => {
         categoryId: payload.categoryId,
         specifications: payload.specifications || {},
         sellType: payload.sellType || "FIXED_PRICE",
-       
-        isActive: false, // ডিফল্ট ড্রাফট হিসেবে ইন-অ্যাক্টিভ থাকবে
+        isActive: false,
       },
     });
     return draftProduct;
   } catch (error: any) {
-    if (error.code === "P2002") throw new ApiError(409, "Product slug already exists!");
+    if (error.code === "P2002")
+      throw new ApiError(409, "Product slug already exists!");
     if (error.code === "P2003") throw new ApiError(400, "Invalid Category ID.");
     throw new ApiError(500, error.message || "Failed to create draft product");
   }
 };
 
-// =================================================
-// 2. PRODUCT PUBLISH
-// =================================================
 const publishProduct = async (draftProductId: string, finalPayload: any) => {
   try {
     const { images = [], variants = [] } = finalPayload;
@@ -86,66 +79,76 @@ const publishProduct = async (draftProductId: string, finalPayload: any) => {
     }
 
     // Database Transaction শুরু
-    const result = await prisma.$transaction(async (tx) => {
-      // ১. প্রোডাক্ট অ্যাক্টিভ করা এবং নতুন ইমেজ যোগ করা
-      const updatedProduct = await tx.product.update({
-        where: { id: draftProductId },
-        data: {
-          isActive: true, // Product Published!
-          images: {
-            deleteMany: {},
-            create: images.map((url: string, index: number) => ({
-              url: url,
-              isPrimary: index === 0,
-              displayOrder: index,
-            })),
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // ১. প্রোডাক্ট অ্যাক্টিভ করা এবং নতুন ইমেজ যোগ করা
+        const updatedProduct = await tx.product.update({
+          where: { id: draftProductId },
+          data: {
+            isActive: true, // Product Published!
+            images: {
+              deleteMany: {},
+              create: images.map((url: string, index: number) => ({
+                url: url,
+                isPrimary: index === 0,
+                displayOrder: index,
+              })),
+            },
           },
-        },
-        include: { images: true },
-      });
-
-      // ২. ভ্যারিয়েন্ট তৈরি করা
-      if (variants && variants.length > 0) {
-        await tx.productVariant.deleteMany({
-          where: { productId: draftProductId },
+          include: { images: true },
         });
 
-        await Promise.all(
-          variants.map(async (variant: any) => {
-            let variantImageId: string | null = null;
-            const { imageIndex, ...variantData } = variant;
-             
+        // ২. ভ্যারিয়েন্ট তৈরি করা
+        if (variants && variants.length > 0) {
+          await tx.productVariant.deleteMany({
+            where: { productId: draftProductId },
+          });
 
-            // ইমেজ ইনডেক্স থেকে আইডি ম্যাচ করা
-            if (typeof imageIndex === "number" && updatedProduct.images[imageIndex]) {
-              variantImageId = updatedProduct.images[imageIndex].id;
-            }
+          await Promise.all(
+            variants.map(async (variant: any) => {
+              let variantImageId: string | null = null;
+              const { imageIndex, ...variantData } = variant;
 
-            return tx.productVariant.create({
-              data: {
-                sku: variantData.sku,
-                price: new Prisma.Decimal(variantData.price),
-                discountPrice: variantData.discountPrice ? new Prisma.Decimal(variantData.discountPrice) : null,
-                stock: variantData.stock || 0,
-                attributes: variantData.attributes || {},
-                weight: variantData.weight || 0.5,
-                length: variantData.length || 10,
-                width: variantData.width || 10,
-                height: variantData.height || 5,
-                productId: updatedProduct.id,
-                imageId: variantImageId,
-                isActive: true,
-              },
-            });
-          }),
-        );
-      }
+              // ইমেজ ইনডেক্স থেকে আইডি ম্যাচ করা
+              if (
+                typeof imageIndex === "number" &&
+                updatedProduct.images[imageIndex]
+              ) {
+                variantImageId = updatedProduct.images[imageIndex].id;
+              }
 
-      return await tx.product.findUnique({
-        where: { id: updatedProduct.id },
-        include: { productVariants: true, images: true },
-      });
-    });
+              return tx.productVariant.create({
+                data: {
+                  sku: variantData.sku,
+                  price: new Prisma.Decimal(variantData.price),
+                  discountPrice: variantData.discountPrice
+                    ? new Prisma.Decimal(variantData.discountPrice)
+                    : null,
+                  stock: variantData.stock || 0,
+                  attributes: variantData.attributes || {},
+                  weight: variantData.weight || 0.5,
+                  length: variantData.length || 10,
+                  width: variantData.width || 10,
+                  height: variantData.height || 5,
+                  productId: updatedProduct.id,
+                  imageId: variantImageId,
+                  isActive: true,
+                },
+              });
+            }),
+          );
+        }
+
+        return await tx.product.findUnique({
+          where: { id: updatedProduct.id },
+          include: { productVariants: true, images: true },
+        });
+      },
+      {
+        maxWait: 5000, // 5 seconds
+        timeout: 10000, // 10 seconds
+      },
+    );
 
     return result;
   } catch (error: any) {
@@ -153,10 +156,9 @@ const publishProduct = async (draftProductId: string, finalPayload: any) => {
     throw new ApiError(500, error.message || "Failed to publish product");
   }
 };
-// =================================================
-// 3. GET all products for admin with filters, pagination and search
-// =================================================
+
 export const getAllProductsForAdmin = async (query: any) => {
+  console.log("all products", query);
   try {
     const {
       page = 1,
@@ -171,7 +173,6 @@ export const getAllProductsForAdmin = async (query: any) => {
     const limitNumber = Number(limit) || 10;
     const skip = (pageNumber - 1) * limitNumber;
 
-    // ডায়নামিক হোয়্যার কন্ডিশন তৈরি
     const whereConditions: Prisma.ProductWhereInput = {
       ...(status && { isActive: status === "active" }),
       ...(search && {
@@ -183,7 +184,6 @@ export const getAllProductsForAdmin = async (query: any) => {
       ...(categoryId && { categoryId: categoryId as string }),
     };
 
-    // শর্টিং লজিক
     let orderBy: Prisma.ProductOrderByWithRelationInput = {};
     switch (sortBy) {
       case "title_asc":
@@ -257,7 +257,8 @@ const getProductById = async (productId: string) => {
     return result;
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
-    if (error.code === "P2023") throw new ApiError(400, "Invalid Product ID format");
+    if (error.code === "P2023")
+      throw new ApiError(400, "Invalid Product ID format");
     throw new ApiError(500, "Error fetching product details");
   }
 };
@@ -267,15 +268,17 @@ const getProductById = async (productId: string) => {
 // =================================================
 const updateProductInfo = async (id: string, payload: any) => {
   try {
-    const { title, description, specifications, categoryId, sellType } = payload;
+    const { title, description, specifications, categoryId, sellType } =
+      payload;
 
     // ১. ডাইনামিক ডাটা অবজেক্ট তৈরি করা যাতে undefined বা ফালতু ডাটা ক্লীন করা যায়
     const updateData: any = {};
 
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
-    if (specifications !== undefined) updateData.specifications = specifications;
-    
+    if (specifications !== undefined)
+      updateData.specifications = specifications;
+
     // 🟢 sellType যদি পাঠানো হয় (এবং undefined না হয়) তবেই অ্যাড হবে
     if (sellType !== undefined) updateData.sellType = sellType;
 
@@ -299,12 +302,14 @@ const updateProductInfo = async (id: string, payload: any) => {
     };
   } catch (error: any) {
     console.error("Prisma Update Error:", error);
-    
+
     // প্রিজমা ফরেন-কী বা রিলেশন এরর হ্যান্ডলিং
     if (error.code === "P2025") throw new ApiError(404, "Product not found");
-    if (error.code === "P2002") throw new ApiError(400, "Unique constraint failed");
-    if (error.code === "P2003") throw new ApiError(400, "Invalid Category ID or relation restriction");
-    
+    if (error.code === "P2002")
+      throw new ApiError(400, "Unique constraint failed");
+    if (error.code === "P2003")
+      throw new ApiError(400, "Invalid Category ID or relation restriction");
+
     throw new ApiError(500, error.message || "Failed to update product info");
   }
 };
@@ -336,8 +341,12 @@ export const manageVariants = async (productId: string, payload: any) => {
                 where: { id: variant.id },
                 data: {
                   sku: variant.sku,
-                  price: variant.price ? new Prisma.Decimal(variant.price) : undefined,
-                  discountPrice: variant.discountPrice ? new Prisma.Decimal(variant.discountPrice) : null,
+                  price: variant.price
+                    ? new Prisma.Decimal(variant.price)
+                    : undefined,
+                  discountPrice: variant.discountPrice
+                    ? new Prisma.Decimal(variant.discountPrice)
+                    : null,
                   stock: variant.stock,
                   weight: variant.weight,
                   length: variant.length,
@@ -358,7 +367,9 @@ export const manageVariants = async (productId: string, payload: any) => {
             productId: productId,
             sku: v.sku,
             price: new Prisma.Decimal(v.price),
-            discountPrice: v.discountPrice ? new Prisma.Decimal(v.discountPrice) : null,
+            discountPrice: v.discountPrice
+              ? new Prisma.Decimal(v.discountPrice)
+              : null,
             stock: v.stock || 0,
             weight: v.weight || 0.5,
             length: v.length || 10,
@@ -385,7 +396,8 @@ export const manageVariants = async (productId: string, payload: any) => {
     return result;
   } catch (error: any) {
     if (error.code === "P2002") throw new ApiError(409, "SKU already exists!");
-    if (error.code === "P2003") throw new ApiError(400, "Invalid references provided.");
+    if (error.code === "P2003")
+      throw new ApiError(400, "Invalid references provided.");
     throw new ApiError(500, error.message || "Failed to sync variants");
   }
 };
@@ -393,7 +405,10 @@ export const manageVariants = async (productId: string, payload: any) => {
 // =================================================
 // 6. IMAGE MANAGEMENT
 // =================================================
-const addProductImageIntoDB = async (productId: string, payload: { url: string }) => {
+const addProductImageIntoDB = async (
+  productId: string,
+  payload: { url: string },
+) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -424,7 +439,10 @@ const addProductImageIntoDB = async (productId: string, payload: { url: string }
   }
 };
 
-const removeImagesFromDB = async (productId: string, payload: { imageIds: string[] }) => {
+const removeImagesFromDB = async (
+  productId: string,
+  payload: { imageIds: string[] },
+) => {
   try {
     const result = await prisma.productImage.deleteMany({
       where: {
@@ -433,14 +451,18 @@ const removeImagesFromDB = async (productId: string, payload: { imageIds: string
       },
     });
 
-    if (result.count === 0) throw new ApiError(400, "No images found to delete");
+    if (result.count === 0)
+      throw new ApiError(400, "No images found to delete");
     return result;
   } catch (error: any) {
     throw new ApiError(500, "Failed to delete images");
   }
 };
 
-const reorderImagesInDB = async (productId: string, payload: { imageIds: string[] }) => {
+const reorderImagesInDB = async (
+  productId: string,
+  payload: { imageIds: string[] },
+) => {
   try {
     const { imageIds } = payload;
     await prisma.$transaction(
@@ -456,7 +478,8 @@ const reorderImagesInDB = async (productId: string, payload: { imageIds: string[
     );
     return { success: true, message: "Reordered successfully" };
   } catch (error: any) {
-    if (error.code === "P2025") throw new ApiError(400, "Invalid image reference.");
+    if (error.code === "P2025")
+      throw new ApiError(400, "Invalid image reference.");
     throw new ApiError(500, "Failed to reorder images");
   }
 };
@@ -496,14 +519,64 @@ export const getHomeProducts = async (query: any = {}) => {
       page = 1,
       limit = 8,
       search = "",
-      categoryId,
+      categorySlug,
+      minPrice,
+      maxPrice,
+      availability,
     } = query;
 
     const pageNumber = Number(page) || 1;
     const limitNumber = Number(limit) || 8;
     const skip = (pageNumber - 1) * limitNumber;
 
-    // ১. হোয়্যার কন্ডিশন (শুধু একটিভ প্রোডাক্ট দেখাবে)
+    // ── Resolve categorySlug(s) → categoryId(s) ──────────────────────────────
+    let categoryIds: string[] | undefined;
+    if (categorySlug) {
+      const slugs = String(categorySlug)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      console.log("all slugs", slugs);
+      if (slugs.length > 0) {
+        const matchedCategories = await prisma.category.findMany({
+          where: { slug: { in: slugs }, isActive: true },
+          select: { id: true },
+        });
+        categoryIds = matchedCategories.map((c) => c.id);
+        // If slugs were provided but none matched, return empty result
+        if (categoryIds.length === 0) {
+          return {
+            products: [],
+            meta: {
+              total: 0,
+              page: pageNumber,
+              limit: limitNumber,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPrevPage: false,
+            },
+          };
+        }
+      }
+    }
+
+    console.log("categoryIds resolved", categoryIds);
+    // ── Resolve availability → sellType ──────────────────────────────────────
+    // "ready" = FIXED_PRICE  |  "order" = COLLECTIVE
+    let sellTypeFilter: string[] | undefined;
+    if (availability) {
+      const avail = String(availability)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const types: string[] = [];
+      if (avail.includes("ready")) types.push("FIXED_PRICE");
+      if (avail.includes("order")) types.push("COLLECTIVE");
+      if (types.length > 0) sellTypeFilter = types;
+    }
+
+    // ── Build WHERE conditions ────────────────────────────────────────────────
     const whereConditions: Prisma.ProductWhereInput = {
       isActive: true,
       ...(search && {
@@ -512,34 +585,45 @@ export const getHomeProducts = async (query: any = {}) => {
           { slug: { contains: search as string, mode: "insensitive" } },
         ],
       }),
-      ...(categoryId && { categoryId: categoryId as string }),
+      ...(categoryIds &&
+        categoryIds.length > 0 && {
+          categoryId: { in: categoryIds },
+        }),
+      ...(sellTypeFilter && {
+        sellType: { in: sellTypeFilter as any },
+      }),
+      ...((minPrice !== undefined || maxPrice !== undefined) && {
+        productVariants: {
+          some: {
+            isActive: true,
+            ...(minPrice !== undefined && {
+              price: { gte: new Prisma.Decimal(Number(minPrice)) },
+            }),
+            ...(maxPrice !== undefined && {
+              price: { lte: new Prisma.Decimal(Number(maxPrice)) },
+            }),
+          },
+        },
+      }),
     };
+    
+    console.log("skip", skip);
+    console.log("whereConditions", whereConditions);
 
-    // ২. ডাটাবেজ কোয়েরি এবং টোটাল কাউন্ট এক সাথে রান করা
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: whereConditions,
         skip: skip,
         take: limitNumber,
-        // 🟢 সর্টিং: প্রথমে ফিচার্ড প্রোডাক্ট, তারপর একদম নতুন প্রোডাক্টগুলো দেখাবে
-        orderBy: [
-          { isFeatured: "desc" },
-          { createdAt: "desc" }
-        ],
-        // আপনার স্কিমা রিলেশন অনুযায়ী ডাটা ইনক্লুড করা হলো
+        orderBy: { createdAt: "desc" },
         include: {
           category: {
-            select: {
-              name: true,
-              slug: true,
-            },
+            select: { name: true, slug: true },
           },
           images: {
-            where: { isPrimary: true }, // মেইন থাম্বনেইল ছবি
+            where: { isPrimary: true },
             take: 1,
-            select: {
-              url: true,
-            },
+            select: { url: true },
           },
           productVariants: {
             where: { isActive: true },
@@ -555,23 +639,25 @@ export const getHomeProducts = async (query: any = {}) => {
       prisma.product.count({ where: whereConditions }),
     ]);
 
-    // ৩. ডাটা ফরম্যাটিং (ফ্রন্টএন্ডের সুবিধার জন্য সর্বনিম্ন দাম এবং ডিসকাউন্ট ক্যালকুলেট করে পাঠানো)
+
+
     const formattedProducts = products.map((product) => {
       const variants = product.productVariants;
-      
-      // ভ্যারিয়েন্টগুলোর মধ্য থেকে সর্বনিম্ন রেগুলার প্রাইস বের করা
-      const basePrice = variants.length > 0 
-        ? Math.min(...variants.map(v => Number(v.price))) 
-        : 0;
+
+      const basePrice =
+        variants.length > 0
+          ? Math.min(...variants.map((v) => Number(v.price)))
+          : 0;
 
       // ভ্যারিয়েন্টগুলোর মধ্য থেকে সর্বনিম্ন ডিসকাউন্ট প্রাইস বের করা (যদি থাকে)
       const validDiscountPrices = variants
-        .map(v => (v.discountPrice ? Number(v.discountPrice) : null))
+        .map((v) => (v.discountPrice ? Number(v.discountPrice) : null))
         .filter((p): p is number => p !== null && p > 0);
 
-      const lowestDiscountPrice = validDiscountPrices.length > 0 
-        ? Math.min(...validDiscountPrices) 
-        : null;
+      const lowestDiscountPrice =
+        validDiscountPrices.length > 0
+          ? Math.min(...validDiscountPrices)
+          : null;
 
       // টোটাল স্টক হিসাব করা (সব ভ্যারিয়েন্ট মিলিয়ে মোট কয়টা আছে)
       const totalStock = variants.reduce((acc, curr) => acc + curr.stock, 0);
@@ -583,8 +669,7 @@ export const getHomeProducts = async (query: any = {}) => {
         sellType: product.sellType,
         isFeatured: product.isFeatured,
         category: product.category,
-        // প্রিলিমিনারি ইমেজের প্রথম ইউআরএল, না থাকলে নাল বা প্লেসহোল্ডার
-        image: product.images[0]?.url || null, 
+        image: product.images[0]?.url || null,
         price: lowestDiscountPrice || basePrice, // ডিসকাউন্ট থাকলে সেটা মেইন প্রাইস হবে
         oldPrice: lowestDiscountPrice ? basePrice : null, // ডিসকাউন্ট থাকলে আগের দাম ওল্ড প্রাইস হবে
         stock: totalStock,
@@ -604,9 +689,11 @@ export const getHomeProducts = async (query: any = {}) => {
       },
     };
   } catch (error: any) {
-    throw new ApiError(500, error.message || "Failed to fetch home products");
+    console.log("home product fetching error", error);
+    throw error;
   }
 };
+
 export const getProductBySlug = async (slug: string) => {
   try {
     const product = await prisma.product.findUnique({
@@ -643,23 +730,26 @@ export const getProductBySlug = async (slug: string) => {
 
     const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
     const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-    
-    const minDiscountPrice = discountPrices.length > 0 ? Math.min(...discountPrices) : null;
+
+    const minDiscountPrice =
+      discountPrices.length > 0 ? Math.min(...discountPrices) : null;
 
     // ২. ইউনিক অ্যাট্রিবিউট অপশনগুলো আলাদা করা (যাতে ফ্রন্টএন্ডে ডাইনামিক ফিল্টার/ড্রপডাউন বানানো যায়)
     // উদাহরণ রেসপন্স: { color: ["Red", "Blue"], size: ["XL", "XXL"] }
     const availableAttributes: Record<string, string[]> = {};
-    
+
     variants.forEach((variant) => {
       if (variant.attributes && typeof variant.attributes === "object") {
-        Object.entries(variant.attributes as Record<string, string>).forEach(([key, value]) => {
-          if (!availableAttributes[key]) {
-            availableAttributes[key] = [];
-          }
-          if (!availableAttributes[key].includes(value)) {
-            availableAttributes[key].push(value);
-          }
-        });
+        Object.entries(variant.attributes as Record<string, string>).forEach(
+          ([key, value]) => {
+            if (!availableAttributes[key]) {
+              availableAttributes[key] = [];
+            }
+            if (!availableAttributes[key].includes(value)) {
+              availableAttributes[key].push(value);
+            }
+          },
+        );
       }
     });
 
@@ -676,10 +766,10 @@ export const getProductBySlug = async (slug: string) => {
       sellType: product.sellType,
       isFeatured: product.isFeatured,
       category: product.category,
-      
+
       // ইমেজ গ্যালারি
-      images: product.images, 
-      
+      images: product.images,
+
       // ফ্রন্টএন্ড ডিসপ্লে প্রাইস লজিক
       priceInfo: {
         hasVariants: variants.length > 1,
@@ -690,7 +780,7 @@ export const getProductBySlug = async (slug: string) => {
         displayPrice: minDiscountPrice || minPrice,
         displayOldPrice: minDiscountPrice ? minPrice : null,
       },
-      
+
       // স্টক স্ট্যাটাস
       stockInfo: {
         totalStock,
@@ -711,10 +801,10 @@ export const getProductBySlug = async (slug: string) => {
         variantImage: v.image?.url || null,
       })),
     };
-
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
-    if (error.code === "P2023") throw new ApiError(400, "Invalid Product Slug format");
+    if (error.code === "P2023")
+      throw new ApiError(400, "Invalid Product Slug format");
     throw new ApiError(500, "Error fetching product details");
   }
 };
