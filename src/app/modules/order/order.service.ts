@@ -69,7 +69,6 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
         id: true,
         images: true,
         title: true,
-        price: true,
       },
     });
 
@@ -85,9 +84,6 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
         title: product.title,
       };
     });
-
-    console.log({ productWithQantityAndPrice });
-    console.log({ items: orderPayload.items });
 
     const fullCustomerAddress = JSON.stringify({
       ...orderPayload.shippingAddress,
