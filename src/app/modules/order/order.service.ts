@@ -1,5 +1,6 @@
 import { prisma } from "../../../shared/prisma";
 import ApiError from "../../error/ApiError";
+import { sendSMS } from "../../../shared/sendSMS";
 
 const getCustomerOrders = async (limit = 10, page = 1) => {
   try {
@@ -82,6 +83,7 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
         price: currentProduct?.price,
         image: product.images[0]?.url,
         title: product.title,
+        productUrl: currentProduct?.productUrl || "",
       };
     });
 
@@ -123,7 +125,28 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
       });
       return newOrder;
     });
-    return null;
+
+    // Send SMS notifications
+    const sellerNumber = "01619210000";
+    const userNumber = orderPayload.customer.phone;
+
+    // 1. Message to Seller
+    const itemDetails = productWithQantityAndPrice
+      .map((item) => `- ${item.title} (Qty: ${item.quantity}) Price: Tk ${item.price}. Link: ${item.productUrl || "N/A"}`)
+      .join("\n");
+    const sellerMessage = `New Order Placed!\nCustomer: ${orderPayload.customer.name} (${userNumber})\nAddress: ${orderPayload.shippingAddress.exactAddress}, ${orderPayload.shippingAddress.district}, ${orderPayload.shippingAddress.division}\nItems:\n${itemDetails}\nTotal: Tk ${orderPayload.totalAmount}`;
+    
+    // 2. Message to User
+    const userMessage = `Thank you ${orderPayload.customer.name} for your order at Karutw! We have received your order. Total: Tk ${orderPayload.totalAmount}. The seller will contact you for shipping price.`;
+
+    try {
+      await sendSMS(sellerNumber, sellerMessage);
+      await sendSMS(userNumber, userMessage);
+    } catch (smsError) {
+      console.error("SMS notification error:", smsError);
+    }
+
+    return result;
   } catch (error: any) {
     console.error("Error creating COD order:", error);
     throw new ApiError(500, error.message || "Failed to take cod order.");

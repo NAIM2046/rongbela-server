@@ -5,17 +5,18 @@ interface Customer {
 }
 
 interface ShippingAddress {
-  street: string;
-  city: string;
+  exactAddress: string;
+  division: string;
   district: string;
-  zip: string;
 }
 
 interface CartItem {
   id: string;
-  name: string;
+  title: string;
   price: number;
   quantity: number;
+  image?: string;
+  productUrl?: string;
 }
 
 interface OrderPayload {
