@@ -8,7 +8,7 @@ import globalErrorHandler from "./app/error/globalErrorHandler";
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000" , "https://rongbelabd.com" , "https://www.rongbelabd.com"],
     credentials: true,
     exposedHeaders: ["set-cookie"],
   }),
