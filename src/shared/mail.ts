@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
 export const sendEmail = async (to: string, subject: string, htmlContent: string) => {
   try {
     const info = await transporter.sendMail({
-      from: `"JU Bus Transport " <${process.env.SMTP_USER}>`, 
+      from: `"রঙবেলা (Rongbela)" <${process.env.SMTP_USER}>`, 
       to, 
       subject, 
       html: htmlContent, 

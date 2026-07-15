@@ -242,7 +242,7 @@ const forgotPasswordService = async (email?: string, phone?: string) => {
 
     // ৪. ইমেইল বা এসএমএস পাঠানো
     if (email) {
-      const subject = "Karutw - Password Reset OTP";
+      const subject = "Rongbela - Password Reset OTP";
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
           <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
@@ -256,7 +256,7 @@ const forgotPasswordService = async (email?: string, phone?: string) => {
       `;
       await sendMessageByEmail(email, subject, html);
     } else if (phone) {
-      const message = `Your Karutw password reset OTP is: ${otp}. It will expire in 5 minutes. Do not share this code.`;
+      const message = `Your Rongbela password reset OTP is: ${otp}. It will expire in 5 minutes. Do not share this code.`;
       await sendMessageBySms(phone, message);
     }
 

@@ -23,7 +23,7 @@ const updateOrderStatus = catchAsync(
   async (req: Request & { user?: JwtUser }, res: Response) => {
     const userId = req.user?.userId as string;
     const { orderId, status } = req.body;
-    const result = await OrderServices.updateOrderStatus();
+    const result = await OrderServices.updateOrderStatus(orderId, status);
     sendResponse(res, {
       data: result,
       success: true,

@@ -13,7 +13,7 @@ export const sendMessageByEmail = async (email: string, subject: string ,html: s
   });
 
   await transporter.sendMail({
-    from: `"Karutw" <${process.env.SMTP_FROM}>`,
+    from: `"রঙবেলা (Rongbela)" <${process.env.SMTP_FROM}>`,
     to: email,
     subject:subject,
     html: html

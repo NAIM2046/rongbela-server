@@ -513,6 +513,70 @@ const deleteProduct = async (id: string) => {
   }
 };
 
+function getLevenshteinDistance(a: string, b: string): number {
+  const tmp: number[][] = [];
+  let i, j;
+  for (i = 0; i <= a.length; i++) {
+    tmp.push([i]);
+  }
+  for (j = 1; j <= b.length; j++) {
+    tmp[0].push(j);
+  }
+  for (i = 1; i <= a.length; i++) {
+    for (j = 1; j <= b.length; j++) {
+      tmp[i][j] = Math.min(
+        tmp[i - 1][j] + 1, // deletion
+        tmp[i][j - 1] + 1, // insertion
+        tmp[i - 1][j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1) // substitution
+      );
+    }
+  }
+  return tmp[a.length][b.length];
+}
+
+function getWordSimilarity(searchWord: string, targetWord: string): number {
+  const s1 = searchWord.toLowerCase().trim();
+  const s2 = targetWord.toLowerCase().trim();
+  if (s1 === s2) return 1.0;
+  if (!s1 || !s2) return 0.0;
+  const distance = getLevenshteinDistance(s1, s2);
+  const maxLen = Math.max(s1.length, s2.length);
+  return 1.0 - distance / maxLen;
+}
+
+function getFuzzyScore(search: string, title: string, category: string, description: string): number {
+  const searchNormalized = search.toLowerCase().trim();
+  const titleNormalized = title.toLowerCase().trim();
+  const categoryNormalized = category.toLowerCase().trim();
+  const descNormalized = description.toLowerCase().trim();
+
+  // 1. Direct contains check (strongest match)
+  if (titleNormalized.includes(searchNormalized)) return 1.0;
+  if (categoryNormalized.includes(searchNormalized)) return 0.9;
+  if (descNormalized.includes(searchNormalized)) return 0.7;
+
+  // 2. Token-level similarity check (handles typos)
+  const searchTokens = searchNormalized.split(/\s+/).filter((t) => t.length > 1);
+  if (searchTokens.length === 0) return 0.0;
+
+  const targetText = `${titleNormalized} ${categoryNormalized} ${descNormalized}`;
+  const targetTokens = targetText.split(/[^\w\u0980-\u09FF]+/).filter((t) => t.length > 1);
+
+  let totalScore = 0;
+  for (const sToken of searchTokens) {
+    let bestTokenScore = 0;
+    for (const tToken of targetTokens) {
+      const sim = getWordSimilarity(sToken, tToken);
+      if (sim > bestTokenScore) {
+        bestTokenScore = sim;
+      }
+    }
+    totalScore += bestTokenScore;
+  }
+
+  return totalScore / searchTokens.length;
+}
+
 export const getHomeProducts = async (query: any = {}) => {
   try {
     const {
@@ -583,6 +647,8 @@ export const getHomeProducts = async (query: any = {}) => {
         OR: [
           { title: { contains: search as string, mode: "insensitive" } },
           { slug: { contains: search as string, mode: "insensitive" } },
+          { description: { contains: search as string, mode: "insensitive" } },
+          { category: { name: { contains: search as string, mode: "insensitive" } } },
         ],
       }),
       ...(categoryIds &&
@@ -639,9 +705,55 @@ export const getHomeProducts = async (query: any = {}) => {
       prisma.product.count({ where: whereConditions }),
     ]);
 
+    let finalProducts = products;
+    let finalTotal = total;
 
+    // Fuzzy search fallback: If exact/substring matches yield 0 results, run fallback
+    if (search && products.length === 0) {
+      const baseWhereConditions = { ...whereConditions };
+      delete baseWhereConditions.OR;
 
-    const formattedProducts = products.map((product) => {
+      const allCandidates = await prisma.product.findMany({
+        where: baseWhereConditions,
+        include: {
+          category: {
+            select: { name: true, slug: true },
+          },
+          images: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { url: true },
+          },
+          productVariants: {
+            where: { isActive: true },
+            select: {
+              price: true,
+              discountPrice: true,
+              stock: true,
+              attributes: true,
+            },
+          },
+        },
+      });
+
+      const scoredCandidates = allCandidates
+        .map((p) => {
+          const score = getFuzzyScore(
+            String(search),
+            p.title,
+            p.category?.name || "",
+            p.description || ""
+          );
+          return { product: p, score };
+        })
+        .filter((c) => c.score >= 0.4) // At least 40% similarity match
+        .sort((a, b) => b.score - a.score);
+
+      finalTotal = scoredCandidates.length;
+      finalProducts = scoredCandidates.slice(skip, skip + limitNumber).map((c) => c.product);
+    }
+
+    const formattedProducts = finalProducts.map((product) => {
       const variants = product.productVariants;
 
       const basePrice =
@@ -680,11 +792,11 @@ export const getHomeProducts = async (query: any = {}) => {
     return {
       products: formattedProducts,
       meta: {
-        total,
+        total: finalTotal,
         page: pageNumber,
         limit: limitNumber,
-        totalPages: Math.ceil(total / limitNumber),
-        hasNextPage: pageNumber * limitNumber < total,
+        totalPages: Math.ceil(finalTotal / limitNumber),
+        hasNextPage: pageNumber * limitNumber < finalTotal,
         hasPrevPage: pageNumber > 1,
       },
     };

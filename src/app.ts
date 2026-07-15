@@ -8,7 +8,7 @@ import globalErrorHandler from "./app/error/globalErrorHandler";
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://karutw.com", "https://www.karutw.com"],
+    origin: ["http://localhost:3000"],
     credentials: true,
     exposedHeaders: ["set-cookie"],
   }),
@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1", router);
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
-    message: "Welcome to Karutw API",
+    message: "Welcome to Rongbela API",
   });
 });
 app.post("/health", (req: Request, res: Response) => {
