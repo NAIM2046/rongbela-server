@@ -1,13 +1,16 @@
 import { prisma } from "../../../shared/prisma";
 import ApiError from "../../error/ApiError";
 import { sendSMS } from "../../../shared/sendSMS";
-import { sendWhatsApp } from "../../../shared/sendWhatsApp";
+
 
 const getCustomerOrders = async (limit = 10, page = 1) => {
   try {
     const currentOrders = await prisma.order.findMany({
       skip: (page - 1) * limit,
       take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
       select: {
         id: true,
         shippingAddress: true,
@@ -23,6 +26,8 @@ const getCustomerOrders = async (limit = 10, page = 1) => {
         createdAt: true,
         orderStatus: true,
         totalAmount: true,
+        couponCode: true,
+        discountAmount: true,
       },
     });
 
@@ -132,9 +137,37 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
         }
       }
 
+      let discountAmount = 0;
+      let couponCode: string | null = null;
+
+      if (orderPayload.couponCode) {
+        const coupon = await tx.coupon.findUnique({
+          where: { code: orderPayload.couponCode.trim().toUpperCase() },
+        });
+
+        if (coupon && coupon.isActive) {
+          const subtotal = productWithQuantityAndPrice.reduce(
+            (acc, item) => acc + (item.price || 0) * (item.quantity || 0),
+            0
+          );
+          discountAmount = (subtotal * coupon.discountPercent) / 100;
+          couponCode = coupon.code;
+        } else {
+          throw new ApiError(400, "Invalid or expired coupon code");
+        }
+      }
+
+      const subtotal = productWithQuantityAndPrice.reduce(
+        (acc, item) => acc + (item.price || 0) * (item.quantity || 0),
+        0
+      );
+      const expectedTotal = Math.max(0, subtotal - discountAmount);
+
       const newOrder = await tx.order.create({
         data: {
-          totalAmount: orderPayload.totalAmount,
+          totalAmount: expectedTotal,
+          couponCode: couponCode,
+          discountAmount: discountAmount,
           orderStatus: "PROCESSING",
           paymentGateway: "COD",
           shippingAddress: fullCustomerAddress,
@@ -147,12 +180,12 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
               quantity: item.quantity || 0,
               unitPrice: item.price || 0,
               totalPrice: (item.price || 0) * (item.quantity || 0),
-              variant: item.variantInfo as any, // Save the variant details (attributes JSON)
+              variant: item.variantInfo as any,
             })),
           },
           orderPayments: {
             create: {
-              amount: orderPayload.totalAmount,
+              amount: expectedTotal,
               gateway: "COD",
               transactionId: getTransactionId(),
               status: "PENDING",
@@ -168,19 +201,17 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
     });
 
     // Send notifications
-    const sellerNumber = "01825544714";
+    const sellerNumber = "01575606194"; // Seller's phone number
     const userNumber = orderPayload.customer.phone;
-    const adminWhatsApp = "8801575606194"; // Admin WhatsApp number
+    
 
-    const itemDetails = productWithQuantityAndPrice
-      .map((item) => `- ${item.title} (Qty: ${item.quantity}) Price: Tk ${item.price}. Link: ${item.productUrl || "N/A"}`)
-      .join("\n");
+   
 
-    const sellerMessage = `New Order Placed!\nCustomer: ${orderPayload.customer.name} (${userNumber})\nAddress: ${orderPayload.shippingAddress.exactAddress}, ${orderPayload.shippingAddress.district}, ${orderPayload.shippingAddress.division}\nItems:\n${itemDetails}\nTotal: Tk ${orderPayload.totalAmount}`;
+    const sellerMessage = `New Order Placed!\nCustomer: ${orderPayload.customer.name} (${userNumber})}`;
     const userMessage = `Thank you ${orderPayload.customer.name} for your order at Rongbela! We have received your order. Total: Tk ${orderPayload.totalAmount}. The seller will contact you for shipping price.`;
 
     // WhatsApp details for Admin
-    const whatsappMessage = `🔔 *New Order Notification!*\n\n*Customer Details:*\n- Name: ${orderPayload.customer.name}\n- Phone: ${userNumber}\n- Address: ${orderPayload.shippingAddress.exactAddress}\n\n*Order Items:*\n${itemDetails}\n\n*Total Amount:* ৳${orderPayload.totalAmount}\n*Status:* PROCESSING\n*Payment:* Cash on Delivery (COD)`;
+    const whatsappMessage = `🔔 *New Order Notification!*\n\n*Customer Details:*\n- Name: ${orderPayload.customer.name}\n- Phone: ${userNumber}\n- `;
 
     try {
       // 1. Send SMS alerts
@@ -191,8 +222,7 @@ const takeCODOrder = async (orderPayload: OrderPayload) => {
     }
 
     try {
-      // 2. Send WhatsApp alert to Admin
-      await sendWhatsApp(adminWhatsApp, whatsappMessage);
+      
     } catch (waError) {
       console.error("WhatsApp notification error:", waError);
     }
@@ -281,11 +311,9 @@ const updateOrderStatus = async (orderId: string, status: any) => {
         }
       }
 
-      // Send WhatsApp notification to Admin (01575606194)
-      const adminWhatsApp = "8801575606194"; // Admin number
-      const whatsappMessage = `Admin Alert: Order Completed!\nOrder ID: ${orderId}\nCustomer: ${customerName}\nAmount: ৳${order.totalAmount}\nStatus: DELIVERED`;
+     
       try {
-        await sendWhatsApp(adminWhatsApp, whatsappMessage);
+        
       } catch (waError) {
         console.error("WhatsApp notification failed:", waError);
       }

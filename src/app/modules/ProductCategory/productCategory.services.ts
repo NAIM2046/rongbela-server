@@ -10,12 +10,13 @@ export interface ICreateCategory {
   image?: string;
 }
 
-const generateSlug = (name: string) => {
-  return name
+const generateSlug = (text: string) => {
+  return text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^\w\u0980-\u09FF-]+/g, "")
+    .replace(/--+/g, "-")
     .replace(/^-+|-+$/g, "");
 };
 const createCategory = async (payload: ICreateCategory) => {

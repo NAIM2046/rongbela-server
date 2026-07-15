@@ -10,6 +10,8 @@ import { UserRoutes } from "../modules/user/user.route";
 import { LocationRoutes } from "../modules/location/location.route";
 import { ShippingRoutes } from "../modules/shipping/shipping.routes";
 import { DashboardRoutes } from "../modules/dashboard/dashboard.route";
+import { SalesRoutes } from "../modules/sales/sales.router";
+import { CouponRoutes } from "../modules/coupon/coupon.route";
 
 export const router = express.Router();
 
@@ -53,6 +55,14 @@ const appRoutes = [
   {
     path: "/dashboard",
     route: DashboardRoutes
+  },
+  {
+    path: "/sales",
+    route: SalesRoutes
+  },
+  {
+    path: "/coupons",
+    route: CouponRoutes
   }
 ];
 

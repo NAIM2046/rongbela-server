@@ -111,9 +111,9 @@ model ProductVariant {
   version  Int     @default(0)
   isActive Boolean @default(true)
 
-  imageId String?
-  image   ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
-  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageId    String?
+  image      ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
 
   @@index([productId, isActive])
@@ -230,6 +230,8 @@ model ShippingConfiguration {
 model Order {
   id              String         @id @default(uuid())
   totalAmount     Float
+  couponCode      String?
+  discountAmount  Float          @default(0.0)
   orderStatus     OrderStatus    @default(PROCESSING)
   paymentGateway  String
   transactionId   String?        @unique
@@ -275,4 +277,44 @@ model OrderPayment {
 enum PaymentGateway {
   SSLCOMMERZ
   COD
+}
+
+model POSSale {
+  id            String   @id @default(uuid())
+  stockId       String?
+  productName   String
+  quantity      Int
+  totalBill     Float
+  customerName  String
+  phone         String
+  paymentMethod String // "CASH" or "ONLINE"
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  stock         Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+
+  @@map("pos_sales")
+}
+
+model Stock {
+  id          String    @id @default(uuid())
+  productName String    @unique
+  buyingPrice Float     @default(0.0)
+  stock       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sales       POSSale[]
+
+  @@map("stocks")
+}
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Float
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("coupons")
 }

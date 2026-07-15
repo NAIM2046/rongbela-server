@@ -25,4 +25,5 @@ interface OrderPayload {
   items: CartItem[];
   paymentMethod: string;
   totalAmount: number;
+  couponCode?: string;
 }
