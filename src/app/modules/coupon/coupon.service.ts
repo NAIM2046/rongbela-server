@@ -32,11 +32,42 @@ const createCoupon = async (payload: { code: string; discountPercent: number }) 
 
 const getAllCoupons = async () => {
   try {
-    return await prisma.coupon.findMany({
+    const coupons = await prisma.coupon.findMany({
       orderBy: {
         createdAt: "desc",
       },
     });
+
+    const couponsWithUsage = await Promise.all(
+      coupons.map(async (coupon) => {
+        const orders = await prisma.order.findMany({
+          where: {
+            couponCode: coupon.code,
+          },
+          select: {
+            id: true,
+            totalAmount: true,
+            discountAmount: true,
+            createdAt: true,
+            orderStatus: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
+        const totalSaved = orders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+
+        return {
+          ...coupon,
+          useCount: orders.length,
+          totalSaved,
+          orders,
+        };
+      })
+    );
+
+    return couponsWithUsage;
   } catch (error: any) {
     throw new ApiError(
       httpStatus.INTERNAL_SERVER_ERROR,
