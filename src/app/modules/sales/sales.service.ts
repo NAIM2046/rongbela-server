@@ -125,56 +125,117 @@ const getAllSales = async () => {
 };
 
 const recordSale = async (payload: {
-  productName: string;
-  stockId?: string;
-  quantity: number;
-  totalBill: number;
   customerName: string;
   phone: string;
   paymentMethod: string;
   notes?: string;
+  productName?: string;
+  stockId?: string;
+  quantity?: number;
+  totalBill?: number;
+  items?: {
+    stockId: string;
+    productName: string;
+    quantity: number;
+    totalBill: number;
+  }[];
 }) => {
   try {
-    // If stockId is provided, check stock and decrement it
-    if (payload.stockId) {
-      const stockItem = await prisma.stock.findUnique({
-        where: { id: payload.stockId },
-      });
+    return await prisma.$transaction(async (tx) => {
+      // 1. If payload.items is provided (New Multi-item Format)
+      if (payload.items && Array.isArray(payload.items)) {
+        const createdSales: any[] = [];
+        for (const item of payload.items) {
+          if (item.stockId) {
+            const stockItem = await tx.stock.findUnique({
+              where: { id: item.stockId },
+            });
 
-      if (!stockItem) {
-        throw new ApiError(httpStatus.NOT_FOUND, "Product not found in Stock.");
+            if (!stockItem) {
+              throw new ApiError(httpStatus.NOT_FOUND, `Product "${item.productName}" not found in Stock.`);
+            }
+
+            if (stockItem.stock < item.quantity) {
+              throw new ApiError(
+                httpStatus.BAD_REQUEST,
+                `Insufficient stock for "${item.productName}". Available: ${stockItem.stock}`
+              );
+            }
+
+            // Decrement stock
+            await tx.stock.update({
+              where: { id: item.stockId },
+              data: {
+                stock: {
+                  decrement: item.quantity,
+                },
+              },
+            });
+          }
+
+          // Create sale record
+          const sale = await tx.pOSSale.create({
+            data: {
+              productName: item.productName.trim(),
+              stockId: item.stockId || null,
+              quantity: item.quantity,
+              totalBill: item.totalBill,
+              customerName: payload.customerName.trim(),
+              phone: payload.phone.trim(),
+              paymentMethod: payload.paymentMethod,
+              notes: payload.notes || null,
+            },
+          });
+          createdSales.push(sale);
+        }
+        return createdSales;
       }
 
-      if (stockItem.stock < payload.quantity) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          `Insufficient inventory stock. Available: ${stockItem.stock}`
-        );
-      }
+      // 2. Legacy Single-item Format
+      const legacyQty = payload.quantity ?? 0;
+      const legacyStockId = payload.stockId;
+      const legacyProductName = payload.productName ?? "Product";
+      const legacyTotalBill = payload.totalBill ?? 0;
 
-      // Decrement stock
-      await prisma.stock.update({
-        where: { id: payload.stockId },
-        data: {
-          stock: {
-            decrement: payload.quantity,
+      if (legacyStockId) {
+        const stockItem = await tx.stock.findUnique({
+          where: { id: legacyStockId },
+        });
+
+        if (!stockItem) {
+          throw new ApiError(httpStatus.NOT_FOUND, "Product not found in Stock.");
+        }
+
+        if (stockItem.stock < legacyQty) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            `Insufficient inventory stock. Available: ${stockItem.stock}`
+          );
+        }
+
+        // Decrement stock
+        await tx.stock.update({
+          where: { id: legacyStockId },
+          data: {
+            stock: {
+              decrement: legacyQty,
+            },
           },
+        });
+      }
+
+      return await tx.pOSSale.create({
+        data: {
+          productName: legacyProductName.trim(),
+          stockId: legacyStockId || null,
+          quantity: legacyQty,
+          totalBill: legacyTotalBill,
+          customerName: payload.customerName.trim(),
+          phone: payload.phone.trim(),
+          paymentMethod: payload.paymentMethod,
+          notes: payload.notes || null,
         },
       });
-    }
-
-    // Record the offline/online manual sale
-    return await prisma.pOSSale.create({
-      data: {
-        productName: payload.productName.trim(),
-        stockId: payload.stockId || null,
-        quantity: payload.quantity,
-        totalBill: payload.totalBill,
-        customerName: payload.customerName.trim(),
-        phone: payload.phone.trim(),
-        paymentMethod: payload.paymentMethod,
-        notes: payload.notes || null,
-      },
     });
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
