@@ -6,6 +6,7 @@ const router = express.Router();
 // Stock endpoints
 router.get("/stock", SalesController.getStockItems);
 router.post("/stock", SalesController.addStockItem);
+router.post("/stock/:stockId/restock", SalesController.restockItem);
 router.patch("/stock/:variantId", SalesController.updateStockItem);
 
 // POS Sales endpoints

@@ -15,9 +15,12 @@ export const sendSMS = async (phone: string, message: string) => {
       return true;
     }
 
+    // Detect if message contains non-ASCII (e.g. Bengali) characters
+    const isUnicode = /[^\u0000-\u007F]/.test(message);
+
     const params = new URLSearchParams({
       api_key: apiKey,
-      type: "text",
+      type: isUnicode ? "unicode" : "text",
       number: phone,
       senderid: senderId,
       message: message, 

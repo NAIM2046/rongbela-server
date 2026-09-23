@@ -285,6 +285,7 @@ model POSSale {
   productName   String
   quantity      Int
   totalBill     Float
+  buyingPrice   Float?   @default(0.0)
   customerName  String
   phone         String
   paymentMethod String // "CASH" or "ONLINE"

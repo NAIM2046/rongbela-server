@@ -37,15 +37,29 @@ const updateStockItem = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const restockItem = catchAsync(async (req: Request, res: Response) => {
+  const { stockId } = req.params;
+  const result = await SalesService.restockItem(stockId as string, req.body);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Stock restocked and weighted average price updated successfully",
+    data: result,
+  });
+});
+
 // ─── POS Sales Controllers ───────────────────────────────────────────────────
 
 const getAllSales = catchAsync(async (req: Request, res: Response) => {
-  const result = await SalesService.getAllSales();
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const result = await SalesService.getAllSales(limit, page);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "POS Sales retrieved successfully",
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 
@@ -109,6 +123,7 @@ const searchCustomers = catchAsync(async (req: Request, res: Response) => {
 export const SalesController = {
   getStockItems,
   addStockItem,
+  restockItem,
   updateStockItem,
   getAllSales,
   recordSale,

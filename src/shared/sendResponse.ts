@@ -10,6 +10,7 @@ export default function sendResponse<T>(
       page: number;
       limit: number;
       total: number;
+      totalPages?: number;
       filter?: string;
     };
     data: T | null | undefined;
