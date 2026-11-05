@@ -11,6 +11,7 @@ import {
   publishProduct,
   removeImages,
   reorderImages,
+  updateDisplayOrder,
   updateProductInfo,
   updateStatus,
 } from "./product.controller";
@@ -24,6 +25,7 @@ router.get("/slug/:slug", getProductBySlug);
 router.post("/publish/:id", auth("ADMIN"), publishProduct);
 
 router.get("/:id", getProductById);
+router.patch("/:id/display-order", auth("ADMIN"), updateDisplayOrder);
 router.patch("/:id/info", auth("ADMIN"), updateProductInfo);
 router.put("/:id/variants", auth("ADMIN"), manageVariants);
 router.patch("/:id/status", auth("ADMIN"), updateStatus);

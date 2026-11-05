@@ -298,8 +298,8 @@ const recordSale = async (payload: {
               quantity: item.quantity,
               totalBill: item.totalBill,
               buyingPrice: itemBuyingPrice,
-              customerName: payload.customerName.trim(),
-              phone: payload.phone.trim(),
+              customerName: (payload.customerName && payload.customerName.trim()) ? payload.customerName.trim() : "Walk-in Customer",
+              phone: payload.phone ? payload.phone.trim() : "",
               paymentMethod: payload.paymentMethod,
               notes: payload.notes || null,
             },
@@ -352,8 +352,8 @@ const recordSale = async (payload: {
           quantity: legacyQty,
           totalBill: legacyTotalBill,
           buyingPrice: legacyBuyingPrice,
-          customerName: payload.customerName.trim(),
-          phone: payload.phone.trim(),
+          customerName: (payload.customerName && payload.customerName.trim()) ? payload.customerName.trim() : "Walk-in Customer",
+          phone: payload.phone ? payload.phone.trim() : "",
           paymentMethod: payload.paymentMethod,
           notes: payload.notes || null,
         },
@@ -363,31 +363,27 @@ const recordSale = async (payload: {
     // ─── Customer Invoice SMS Notification ─────────────────────────
     if (payload.sendSms !== false && payload.phone && payload.phone.trim().length >= 11) {
       try {
-        const customerName = payload.customerName?.trim() || "Customer";
-        let itemsListText = "";
+        const rawName = payload.customerName?.trim();
+        const isRealName = rawName && rawName.toLowerCase() !== "walk-in customer" && rawName.toLowerCase() !== "walk in";
         let totalAmountVal = 0;
         let invoiceId = "";
 
         if (Array.isArray(result) && result.length > 0) {
-          itemsListText = result.map((s) => `• ${s.productName} x ${s.quantity}`).join("\n");
           totalAmountVal = result.reduce((sum, s) => sum + (s.totalBill || 0), 0);
           invoiceId = `RB-${result[0].id.slice(0, 6).toUpperCase()}`;
         } else if (result && !Array.isArray(result)) {
-          itemsListText = `• ${result.productName} x ${result.quantity}`;
           totalAmountVal = result.totalBill || 0;
           invoiceId = `RB-${result.id.slice(0, 6).toUpperCase()}`;
         }
 
-        if (itemsListText) {
-          const smsMessage = `Dear, ${customerName}
-আপনার Rongbela purchase-এর জন্য ধন্যবাদ।
+        if (invoiceId) {
+          const namePart = isRealName ? `${rawName}, ` : "";
+          const smsMessage = `Thanks ${namePart}for shopping with Rongbela!
 Invoice: ${invoiceId}
-Items:
-${itemsListText}
-Total Amount: ৳${totalAmountVal}
-কোনো সমস্যা হলে আপনার Phone Number দেখিয়ে আমাদের সাথে যোগাযোগ করতে পারবেন।
-Website: rongbelabd.com
-Facebook: https://www.facebook.com/rongbela12`;
+Total: Tk ${totalAmountVal}
+WhatsApp: https://wa.me/8801825053632
+Website: https://rongbelabd.com
+Facebook: https://facebook.com/rongbela12`;
 
           await sendSMS(payload.phone.trim(), smsMessage);
         }

@@ -24,6 +24,25 @@ const generateSlug = (title: string) => {
 };
 
 // =================================================
+// HELPER: AUTO-MIGRATION FOR DISPLAY ORDER COLUMN
+// =================================================
+let isDisplayOrderColumnEnsured = false;
+export const ensureProductDisplayOrderColumn = async () => {
+  if (isDisplayOrderColumnEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "displayOrder" INTEGER DEFAULT 9999;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Product_displayOrder_idx" ON "Product"("displayOrder");
+    `);
+    isDisplayOrderColumnEnsured = true;
+  } catch (error) {
+    console.error("Auto-migration error for Product displayOrder:", error);
+  }
+};
+
+// =================================================
 // HELPER: UNIQUE SLUG GENERATOR
 // =================================================
 const generateUniqueSlug = async (title: string) => {
@@ -160,13 +179,14 @@ const publishProduct = async (draftProductId: string, finalPayload: any) => {
 export const getAllProductsForAdmin = async (query: any) => {
   console.log("all products", query);
   try {
+    await ensureProductDisplayOrderColumn();
     const {
       page = 1,
       limit = 10,
       search = "",
       categoryId,
       status,
-      sortBy = "newest",
+      sortBy = "display_order",
     } = query;
 
     const pageNumber = Number(page) || 1;
@@ -184,14 +204,19 @@ export const getAllProductsForAdmin = async (query: any) => {
       ...(categoryId && { categoryId: categoryId as string }),
     };
 
-    let orderBy: Prisma.ProductOrderByWithRelationInput = {};
+    let orderBy: Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[] = [
+      { displayOrder: "asc" },
+      { createdAt: "desc" },
+    ];
     switch (sortBy) {
       case "title_asc":
         orderBy = { title: "asc" };
         break;
       case "newest":
-      default:
         orderBy = { createdAt: "desc" };
+        break;
+      default:
+        orderBy = [{ displayOrder: "asc" }, { createdAt: "desc" }];
         break;
     }
 
@@ -268,7 +293,8 @@ const getProductById = async (productId: string) => {
 // =================================================
 const updateProductInfo = async (id: string, payload: any) => {
   try {
-    const { title, description, specifications, categoryId, sellType } =
+    await ensureProductDisplayOrderColumn();
+    const { title, description, specifications, categoryId, sellType, displayOrder } =
       payload;
 
     // ১. ডাইনামিক ডাটা অবজেক্ট তৈরি করা যাতে undefined বা ফালতু ডাটা ক্লীন করা যায়
@@ -281,6 +307,12 @@ const updateProductInfo = async (id: string, payload: any) => {
 
     // 🟢 sellType যদি পাঠানো হয় (এবং undefined না হয়) তবেই অ্যাড হবে
     if (sellType !== undefined) updateData.sellType = sellType;
+
+    // 🟢 displayOrder আপডেট
+    if (displayOrder !== undefined) {
+      const orderNum = Number(displayOrder);
+      updateData.displayOrder = isNaN(orderNum) ? 9999 : orderNum;
+    }
 
     // 🟢 ক্যাটাগরি আইডি সরাসরি পাস না করে প্রিজমা রিলেশন দিয়ে কানেক্ট করা
     if (categoryId) {
@@ -302,8 +334,6 @@ const updateProductInfo = async (id: string, payload: any) => {
     };
   } catch (error: any) {
     console.error("Prisma Update Error:", error);
-
-    // প্রিজমা ফরেন-কী বা রিলেশন এরর হ্যান্ডলিং
     if (error.code === "P2025") throw new ApiError(404, "Product not found");
     if (error.code === "P2002")
       throw new ApiError(400, "Unique constraint failed");
@@ -311,6 +341,30 @@ const updateProductInfo = async (id: string, payload: any) => {
       throw new ApiError(400, "Invalid Category ID or relation restriction");
 
     throw new ApiError(500, error.message || "Failed to update product info");
+  }
+};
+
+const updateProductDisplayOrder = async (id: string, displayOrder: number) => {
+  try {
+    await ensureProductDisplayOrderColumn();
+    const orderNum = Number(displayOrder);
+    const finalOrder = isNaN(orderNum) ? 9999 : Math.max(1, orderNum);
+
+    const result = await prisma.product.update({
+      where: { id },
+      data: {
+        displayOrder: finalOrder,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Product display order updated to ${finalOrder}`,
+      data: result,
+    };
+  } catch (error: any) {
+    if (error.code === "P2025") throw new ApiError(404, "Product not found");
+    throw new ApiError(500, error.message || "Failed to update product display order");
   }
 };
 
@@ -579,6 +633,7 @@ function getFuzzyScore(search: string, title: string, category: string, descript
 
 export const getHomeProducts = async (query: any = {}) => {
   try {
+    await ensureProductDisplayOrderColumn();
     const {
       page = 1,
       limit = 8,
@@ -681,7 +736,7 @@ export const getHomeProducts = async (query: any = {}) => {
         where: whereConditions,
         skip: skip,
         take: limitNumber,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
         include: {
           category: {
             select: { name: true, slug: true },
@@ -937,4 +992,5 @@ export const productService = {
   getAllProductsForAdmin,
   getHomeProducts,
   getProductBySlug,
+  updateProductDisplayOrder,
 };

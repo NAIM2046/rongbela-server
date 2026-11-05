@@ -218,3 +218,20 @@ export const getProductBySlug = catchAsync(
     });
   },
 );
+
+export const updateDisplayOrder = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { displayOrder } = req.body;
+    const result = await productService.updateProductDisplayOrder(
+      id as string,
+      Number(displayOrder),
+    );
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Product display order updated successfully!",
+      data: result,
+    });
+  },
+);
