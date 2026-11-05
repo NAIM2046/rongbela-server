@@ -80,6 +80,7 @@ model Product {
   sellType       ProductSellType @default(FIXED_PRICE)
   isActive       Boolean         @default(true)
   isFeatured     Boolean         @default(false)
+  displayOrder   Int             @default(9999)
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -93,6 +94,7 @@ model Product {
 
   @@index([categoryId, isActive])
   @@index([createdAt])
+  @@index([displayOrder])
 }
 
 model ProductVariant {

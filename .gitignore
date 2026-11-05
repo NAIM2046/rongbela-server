@@ -15,12 +15,9 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment variables
-.env
-.env.local
 .env.*.local
 
 # VSCode settings
-.vscode/
 
 # IDE / OS-specific
 .DS_Store
@@ -36,3 +33,4 @@ temp/
 /src/generated/prisma
 
 .vercel
+config.bat
